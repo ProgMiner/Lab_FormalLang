@@ -18,6 +18,10 @@ def test_load_by_name():
     assert summary == (632, 556, {"a", "d"})
 
 
+def test_load_summary_by_name():
+    assert g.load_summary_by_name("bzip") == (632, 556, {"a", "d"})
+
+
 def test_build_two_cycles():
     graph = g.build_two_cycles(3, 5, ("x", "y"))
     summary = g.summary(graph)
@@ -121,6 +125,34 @@ def test_write_dot():
 39 -> 40  [key=0, label=x];
 40 -> 41  [key=0, label=x];
 41 -> 0  [key=0, label=x];
+}
+"""
+    )
+
+
+def test_build_two_cycles_and_write_dot():
+    with tempfile.TemporaryFile(mode="w+") as f:
+        g.build_two_cycles_and_write_dot(2, 3, ("x", "y"), f)
+
+        f.seek(0)
+        content = f.read()
+
+    assert (
+        content
+        == """digraph  {
+1;
+2;
+0;
+3;
+4;
+5;
+1 -> 2  [key=0, label=x];
+2 -> 0  [key=0, label=x];
+0 -> 1  [key=0, label=x];
+0 -> 3  [key=0, label=y];
+3 -> 4  [key=0, label=y];
+4 -> 5  [key=0, label=y];
+5 -> 0  [key=0, label=y];
 }
 """
     )
