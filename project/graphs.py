@@ -1,17 +1,23 @@
 from networkx.drawing import nx_pydot
+from collections import namedtuple
 from networkx import MultiDiGraph
 from typing import Tuple
 import cfpq_data as cfpq
+
+
+GraphSummary = namedtuple("GraphSummary", ["nodes_amount", "edges_amount", "labels"])
 
 
 def load_by_name(name: str) -> MultiDiGraph:
     return cfpq.graph_from_csv(cfpq.download(name))
 
 
-def summary(graph) -> Tuple[int, int, set]:
-    labels = set([x for _, _, x in graph.edges(data="label")])
-
-    return (graph.number_of_nodes(), graph.number_of_edges(), labels)
+def summary(graph) -> GraphSummary:
+    return GraphSummary(
+        nodes_amount=graph.number_of_nodes(),
+        edges_amount=graph.number_of_edges(),
+        labels=set([x for _, _, x in graph.edges(data="label")]),
+    )
 
 
 def build_two_cycles(n: int, m: int, labels: Tuple[str, str]) -> MultiDiGraph:
