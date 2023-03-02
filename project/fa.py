@@ -1,9 +1,4 @@
-from pyformlang.finite_automaton import (
-    DeterministicFiniteAutomaton,
-    EpsilonNFA,
-    State,
-    Symbol,
-)
+from pyformlang.finite_automaton import DeterministicFiniteAutomaton, EpsilonNFA
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
 from project.graphs import summary
@@ -19,32 +14,18 @@ def graph_to_nfa(
     start_states: Iterable[str] = None,
     final_states: Iterable[str] = None,
 ) -> EpsilonNFA:
-    states = {st: State(st) for st in graph.nodes()}
-    states_set = set(states.values())
+    states = set(graph.nodes())
+    labels = summary(graph).labels
 
-    labels = {s: Symbol(s) for s in summary(graph).labels}
-    labels_set = set(labels.values())
-
-    start_states = (
-        set([states[st] for st in start_states])
-        if start_states is not None
-        else states_set
-    )
-
-    final_states = (
-        set([states[st] for st in final_states])
-        if final_states is not None
-        else states_set
-    )
+    start_states = set(start_states) if start_states is not None else set(states)
+    final_states = set(final_states) if final_states is not None else set(states)
 
     nfa = EpsilonNFA(
-        states=states_set,
-        input_symbols=labels_set,
+        states=states,
+        input_symbols=labels,
         start_state=start_states,
         final_states=final_states,
     )
 
-    for f, t, l in graph.edges(data="label"):
-        nfa.add_transition(states[f], labels[l], states[t])
-
+    nfa.add_transitions([(f, l, t) for f, t, l in graph.edges(data="label")])
     return nfa
