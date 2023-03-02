@@ -6,12 +6,12 @@ from pyformlang.finite_automaton import (
 )
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
+from project.graphs import summary
 from typing import Iterable
-from graphs import summary
 
 
 def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
-    return Regex(regex).to_epsilon_nfa().to_deterministic()
+    return Regex(regex).to_epsilon_nfa().minimize()
 
 
 def graph_to_nfa(
@@ -44,7 +44,7 @@ def graph_to_nfa(
         final_states=final_states,
     )
 
-    for (f, t, l) in graph.edges(data="label"):
+    for f, t, l in graph.edges(data="label"):
         nfa.add_transition(states[f], labels[l], states[t])
 
     return nfa
