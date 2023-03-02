@@ -2,6 +2,7 @@ from pyformlang.finite_automaton import DeterministicFiniteAutomaton, State, Sym
 import networkx.algorithms.isomorphism as iso
 from hypothesis.strategies import from_regex
 from hypothesis import given
+import project.graphs as g
 import project.fa as fa
 import pytest
 
@@ -41,3 +42,25 @@ def test_regex_to_dfa_minimal():
     dfa2_graph = dfa2.to_networkx()
 
     assert iso.is_isomorphic(dfa1_graph, dfa2_graph)
+
+
+def test_graph_to_nfa_sanity():
+    dfa = fa.regex_to_dfa("c* a b (a|b|c)*")
+    nfa = fa.graph_to_nfa(dfa.to_networkx(), [dfa.start_state], dfa.final_states)
+    assert dfa.is_equivalent_to(nfa)
+
+
+def test_graph_to_nfa_real():
+    graph = g.load_by_name("generations")
+
+    nfa = fa.graph_to_nfa(graph, [57], [57])
+    assert nfa.accepts(["sameAs", "sameAs"])
+
+    nfa = fa.graph_to_nfa(graph, [81])
+    assert nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
+    assert not nfa.accepts(["intersectionOf", "rest", "first"])
+
+    nfa = fa.graph_to_nfa(graph, final_states=[21])
+    assert nfa.accepts(["equivalentClass", "type"])
+    assert nfa.accepts(["first", "type", "type"])
+    assert not nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
