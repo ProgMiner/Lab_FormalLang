@@ -10,7 +10,7 @@ GraphSummary = namedtuple("GraphSummary", ["nodes_amount", "edges_amount", "labe
 
 def load_by_name(name: str) -> MultiDiGraph:
     """
-    Загружает граф из датасета по имени.
+    Loads graph from dataset by name.
     """
 
     return cfpq.graph_from_csv(cfpq.download(name))
@@ -18,7 +18,7 @@ def load_by_name(name: str) -> MultiDiGraph:
 
 def summary(graph: MultiDiGraph) -> GraphSummary:
     """
-    Возвращает число вершин и рёбер в графе, а также множество меток.
+    Returns number of nodes and edges, and set of labels.
     """
 
     return GraphSummary(
@@ -30,7 +30,7 @@ def summary(graph: MultiDiGraph) -> GraphSummary:
 
 def load_summary_by_name(name: str) -> GraphSummary:
     """
-    Возвращает сводную информацию для графа из датасета по его имени.
+    Returns summary about graph loaded by name.
     """
 
     return summary(load_by_name(name))
@@ -38,8 +38,9 @@ def load_summary_by_name(name: str) -> GraphSummary:
 
 def build_two_cycles(n: int, m: int, labels: Tuple[str, str]) -> MultiDiGraph:
     """
-    Строит граф из двух циклов, в одном из которых n вершин, а в другом - m. Рёбра первого цикла
-    будут иметь метку первого элемента пары меток, рёбра второго - вторую.
+    Builds graph of two cycles with n and m nodes in cycle respectively.
+    Edges of first cycle will have label from first element of pair, edges of second cycle -
+    from second element.
     """
 
     return cfpq.labeled_two_cycles_graph(n, m, labels=labels)
@@ -47,7 +48,7 @@ def build_two_cycles(n: int, m: int, labels: Tuple[str, str]) -> MultiDiGraph:
 
 def write_dot(graph: MultiDiGraph, path):
     """
-    Записывает граф в формате DOT. В качестве файла может быть путь или объект файла.
+    Writes graph in a DOT format. Path could be a path or file object.
     """
 
     nx_pydot.write_dot(graph, path)
@@ -55,7 +56,7 @@ def write_dot(graph: MultiDiGraph, path):
 
 def build_two_cycles_and_write_dot(n: int, m: int, labels: Tuple[str, str], path):
     """
-    Строит граф из двух циклов и записывает в формате DOT.
+    Builds graph of two cycles and writes in DOT format.
     """
 
     write_dot(build_two_cycles(n, m, labels), path)
