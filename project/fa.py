@@ -7,9 +7,8 @@ from typing import Iterable
 
 def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
     """
-    Принимает регулярное выражение в формате
-    https://pyformlang.readthedocs.io/en/latest/usage.html#regular-expression
-    и строит по нему минимальный ДКА.
+    Builds DFA for regular expression written in format:
+    https://pyformlang.readthedocs.io/en/latest/usage.html#regular-expression.
     """
 
     return Regex(regex).to_epsilon_nfa().minimize()
@@ -21,9 +20,8 @@ def graph_to_nfa(
     final_states: Iterable[str] = None,
 ) -> EpsilonNFA:
     """
-    Принимает ориентированный мультиграф и строит по нему НКА.
-    По-умолчанию все его состояния будут начальными и конечными, чтобы это переопределить,
-    можно передать набор стартовых и/или конечных состояний.
+    Builds NFA from multi-digraph.
+    If start states and/or final states aren't specified, all states will be start/final.
     """
 
     states = set(graph.nodes())
