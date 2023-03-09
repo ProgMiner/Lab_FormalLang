@@ -1,4 +1,9 @@
-from pyformlang.finite_automaton import DeterministicFiniteAutomaton, State, Symbol
+from pyformlang.finite_automaton import (
+    EpsilonNFA,
+    DeterministicFiniteAutomaton,
+    State,
+    Symbol,
+)
 import networkx.algorithms.isomorphism as iso
 from hypothesis.strategies import from_regex
 from scipy.sparse import coo_matrix
@@ -256,3 +261,38 @@ def test_adjacency_matrix():
             ]
         )
     ).all()
+
+
+def test_intersect_self():
+    graph = fa.graph_to_nfa(g.load_by_name("generations"))
+    assert graph.is_equivalent_to(fa.intersect(graph, graph))
+
+
+def test_intersect_empty():
+    graph = fa.graph_to_nfa(g.load_by_name("generations"))
+    empty = EpsilonNFA()
+
+    assert empty.is_equivalent_to(fa.intersect(empty, graph))
+
+
+def test_intersect_with_regex():
+    graph = g.load_by_name("generations")
+
+    nfa = fa.intersect(fa.graph_to_nfa(graph, [57], [57]), fa.regex_to_dfa("sameAs*"))
+    assert nfa.accepts(["sameAs", "sameAs"])
+
+    nfa = fa.intersect(
+        fa.graph_to_nfa(graph, [81]),
+        fa.regex_to_dfa("equivalentClass intersectionOf rest first"),
+    )
+    assert nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
+    assert not nfa.accepts(["intersectionOf", "rest", "first"])
+
+    nfa = fa.intersect(
+        fa.graph_to_nfa(graph, final_states=[21]),
+        fa.regex_to_dfa("( equivalentClass | first ) type* type"),
+    )
+    assert nfa.accepts(["equivalentClass", "type"])
+    assert nfa.accepts(["first", "type", "type"])
+    assert not nfa.accepts(["type", "type"])
+    assert not nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
