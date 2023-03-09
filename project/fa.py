@@ -146,7 +146,9 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     b_boolean = to_boolean_matrices(b, b_mapping)
 
     same_labels = set.intersection(set(a_boolean.keys()), set(b_boolean.keys()))
-    result_boolean = {l: kron(a_boolean[l], b_boolean[l]) for l in same_labels}
+    result_boolean = {
+        l: coo_matrix(kron(a_boolean[l], b_boolean[l])) for l in same_labels
+    }
 
     result_states = [None for i in range(len(a_mapping) * len(b_mapping))]
     for a_st, i in a_mapping.items():
