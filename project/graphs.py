@@ -1,7 +1,6 @@
 from networkx.drawing import nx_pydot
 from collections import namedtuple
 from networkx import MultiDiGraph
-from typing import Tuple
 import cfpq_data as cfpq
 
 
@@ -36,7 +35,7 @@ def load_summary_by_name(name: str) -> GraphSummary:
     return summary(load_by_name(name))
 
 
-def build_two_cycles(n: int, m: int, labels: Tuple[str, str]) -> MultiDiGraph:
+def build_two_cycles(n: int, m: int, labels: tuple[str, str]) -> MultiDiGraph:
     """
     Builds graph of two cycles with n and m nodes in cycle respectively.
     Edges of first cycle will have label from first element of pair, edges of second cycle -
@@ -54,7 +53,7 @@ def write_dot(graph: MultiDiGraph, path):
     nx_pydot.write_dot(graph, path)
 
 
-def build_two_cycles_and_write_dot(n: int, m: int, labels: Tuple[str, str], path):
+def build_two_cycles_and_write_dot(n: int, m: int, labels: tuple[str, str], path):
     """
     Builds graph of two cycles and writes in DOT format.
     """

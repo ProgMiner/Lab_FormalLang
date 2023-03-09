@@ -2,9 +2,9 @@ from pyformlang.finite_automaton import DeterministicFiniteAutomaton, EpsilonNFA
 from scipy.sparse import dok_matrix, coo_matrix, csr_matrix, kron
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
-from typing import Iterable, Tuple
 from project.graphs import summary
 from math import log2, ceil
+from typing import Iterable
 import numpy as np
 
 
@@ -175,7 +175,7 @@ def query_graph(
     graph: MultiDiGraph,
     start_states: Iterable[str] = None,
     final_states: Iterable[str] = None,
-) -> Iterable[Tuple[str, str]]:
+) -> Iterable[tuple[str, str]]:
     """
     Finds all pairs of start and final states such that final state reachable from start state
     with constraints specified by the regex.
