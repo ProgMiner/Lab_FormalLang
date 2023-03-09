@@ -183,9 +183,6 @@ def query_graph(
     with constraints specified by the regex.
     """
 
-    start_states = set(start_states)
-    final_states = set(final_states)
-
     a = regex_to_dfa(regex)
     b = graph_to_nfa(graph, start_states, final_states)
     c = intersect(a, b)
@@ -197,12 +194,8 @@ def query_graph(
     for _ in range(ceil(log2(len(c_mapping)))):
         c_closure += c_closure @ c_closure
 
-    start_states = {
-        i: s.value for s, i in c_mapping.items() if s.value[1] in start_states
-    }
-    final_states = {
-        i: s.value for s, i in c_mapping.items() if s.value[1] in final_states
-    }
+    start_states = {i: s.value for s, i in c_mapping.items() if s in c.start_states}
+    final_states = {i: s.value for s, i in c_mapping.items() if s in c.final_states}
     c_closure = coo_matrix(c_closure)
 
     result = set()
