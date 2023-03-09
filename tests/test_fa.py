@@ -296,3 +296,67 @@ def test_intersect_with_regex():
     assert nfa.accepts(["first", "type", "type"])
     assert not nfa.accepts(["type", "type"])
     assert not nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
+
+
+def test_query_graph_empty():
+    graph = g.load_by_name("generations")
+    assert fa.query_graph("", graph, graph.nodes, graph.nodes) == set()
+
+
+def test_query_graph_some():
+    graph = g.load_by_name("generations")
+
+    assert fa.query_graph("sameAs*", graph, [57], [57]) == set([(57, 57)])
+    assert fa.query_graph("sameAs sameAs", graph, [57], [57]) == set([(57, 57)])
+
+    assert fa.query_graph(
+        "equivalentClass intersectionOf rest first",
+        graph,
+        [81],
+        graph.nodes,
+    ) == set([(81, 34)])
+
+    assert fa.query_graph(
+        "( equivalentClass | first ) type* type",
+        graph,
+        graph.nodes,
+        [21],
+    ) == set(
+        [
+            (81, 21),
+            (6, 21),
+            (4, 21),
+            (70, 21),
+            (92, 21),
+            (125, 21),
+            (17, 21),
+            (127, 21),
+            (105, 21),
+            (74, 21),
+            (118, 21),
+            (96, 21),
+            (1, 21),
+            (63, 21),
+            (87, 21),
+            (120, 21),
+            (109, 21),
+            (45, 21),
+            (100, 21),
+            (47, 21),
+            (69, 21),
+            (124, 21),
+            (51, 21),
+            (16, 21),
+            (49, 21),
+            (79, 21),
+            (82, 21),
+            (106, 21),
+            (97, 21),
+            (55, 21),
+            (88, 21),
+            (121, 21),
+            (68, 21),
+            (90, 21),
+            (123, 21),
+        ]
+    )
