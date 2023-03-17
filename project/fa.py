@@ -291,7 +291,7 @@ def regexp_reachability(
     b_states = [j for _, j in sorted([(idx, s) for s, idx in b_mapping.items()])]
 
     if for_each:
-        return {x: [b_states[j] for j in js] for (x,), js in result.items()}
+        return {x: {b_states[j] for j in js} for (x,), js in result.items()}
 
     else:
         (result,) = result.values()
