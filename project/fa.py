@@ -172,7 +172,7 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     return result
 
 
-def query_graph(
+def query_graph_kron(
     regex: str,
     graph: MultiDiGraph,
     start_states: Iterable[str] = None,
