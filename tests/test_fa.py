@@ -298,25 +298,25 @@ def test_intersect_with_regex():
     assert not nfa.accepts(["equivalentClass", "intersectionOf", "rest", "first"])
 
 
-def test_query_graph_empty():
+def test_query_graph_kron_empty():
     graph = g.load_by_name("generations")
-    assert fa.query_graph("", graph, graph.nodes, graph.nodes) == set()
+    assert fa.query_graph_kron("", graph, graph.nodes, graph.nodes) == set()
 
 
-def test_query_graph_some():
+def test_query_graph_kron_some():
     graph = g.load_by_name("generations")
 
-    assert fa.query_graph("sameAs*", graph, [57], [57]) == set([(57, 57)])
-    assert fa.query_graph("sameAs sameAs", graph, [57], [57]) == set([(57, 57)])
+    assert fa.query_graph_kron("sameAs*", graph, [57], [57]) == set([(57, 57)])
+    assert fa.query_graph_kron("sameAs sameAs", graph, [57], [57]) == set([(57, 57)])
 
-    assert fa.query_graph(
+    assert fa.query_graph_kron(
         "equivalentClass intersectionOf rest first",
         graph,
         [81],
         graph.nodes,
     ) == set([(81, 34)])
 
-    assert fa.query_graph(
+    assert fa.query_graph_kron(
         "( equivalentClass | first ) type* type",
         graph,
         graph.nodes,
