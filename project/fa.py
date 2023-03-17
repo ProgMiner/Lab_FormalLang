@@ -19,8 +19,8 @@ def regex_to_dfa(regex: str) -> DeterministicFiniteAutomaton:
 
 def graph_to_nfa(
     graph: MultiDiGraph,
-    start_states: Iterable[str] = None,
-    final_states: Iterable[str] = None,
+    start_states: Iterable[any] = None,
+    final_states: Iterable[any] = None,
 ) -> EpsilonNFA:
     """
     Builds NFA from multi-digraph.
@@ -175,9 +175,9 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
 def query_graph_kron(
     regex: str,
     graph: MultiDiGraph,
-    start_states: Iterable[str] = None,
-    final_states: Iterable[str] = None,
-) -> Iterable[tuple[str, str]]:
+    start_states: Iterable[any] = None,
+    final_states: Iterable[any] = None,
+) -> Iterable[tuple[any, any]]:
     """
     Finds all pairs of start and final states such that final state reachable from start state
     with constraints specified by the regex.
@@ -209,13 +209,13 @@ def query_graph_kron(
 def regexp_reachability(
     regexp: EpsilonNFA,
     graph: EpsilonNFA,
-    start_nodes: set[any],
+    start_nodes: Iterable[any],
     for_each: bool,
 ):
     """
     Find all final nodes reachable from specified start nodes with RegExp constraints.
 
-    If `for_each` specified, return value is dist of start state to nodes, otherwise is just
+    If `for_each` specified, return value is dict of start state to nodes, otherwise is just
     set of final nodes.
 
     Graph is represented as FA only for convenience, them start and final states are ignored.
@@ -229,12 +229,11 @@ def regexp_reachability(
     b_boolean = to_boolean_matrices(graph, b_mapping)
 
     same_labels = set.intersection(set(a_boolean.keys()), set(b_boolean.keys()))
-    both_boolean = {l: sp.block_diag((a_boolean[l], b_boolean[l])) for l in same_labels}
 
-    # from this moment matrices in both_boolean will be transposed
-
-    for adj_mat in both_boolean.values():
-        adj_mat.transpose()
+    # NOTE: matrices are transposed
+    both_boolean = {
+        l: sp.block_diag((a_boolean[l], b_boolean[l])).transpose() for l in same_labels
+    }
 
     n = len(a_mapping)  # number of regexp states
     m = len(b_mapping)  # number of graph nodes
@@ -246,7 +245,6 @@ def regexp_reachability(
 
     del start_nodes
     final_states = {a_mapping[i] for i in regexp.final_states}
-    b_states = [j for _, j in sorted([(idx, s) for s, idx in b_mapping.items()])]
 
     result = {}
     for start_nodes in start_nodes_sets:
@@ -267,7 +265,8 @@ def regexp_reachability(
             front = sp.vstack((sp.identity(n, dtype=np.bool_), front), format="csr")
 
             current = set()
-            for adj_mat in both_boolean.values():
+            # for adj_mat in both_boolean.values():
+            for lbl, adj_mat in both_boolean.items():
                 next_front = sp.coo_matrix(adj_mat @ front)
 
                 a_states = [[] for _ in range(n)]
@@ -289,9 +288,29 @@ def regexp_reachability(
 
         result[frozenset(start_nodes)] = {j for i, j in visited if i in final_states}
 
+    b_states = [j for _, j in sorted([(idx, s) for s, idx in b_mapping.items()])]
+
     if for_each:
         return {x: [b_states[j] for j in js] for (x,), js in result.items()}
 
     else:
         (result,) = result.values()
-        return result
+        return {b_states[j] for j in result}
+
+
+def query_graph_bfs(
+    regex: str,
+    graph: MultiDiGraph,
+    start_states: Iterable[any] = None,
+    for_each: bool = False,
+):
+    """
+    Finds all nodes in graph reachable from start nodes with RegExp constraints.
+
+    If `for_each` is `True`, returns dict of start state to set of reachable nodes,
+    otherwise returns one set for all start nodes.
+    """
+
+    a = regex_to_dfa(regex)
+    b = graph_to_nfa(graph, [], [])
+    return regexp_reachability(a, b, start_states, for_each)
