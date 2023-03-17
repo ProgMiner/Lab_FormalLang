@@ -1,10 +1,10 @@
 from pyformlang.finite_automaton import DeterministicFiniteAutomaton, EpsilonNFA
-from scipy.sparse import dok_matrix, coo_matrix, csr_matrix, kron
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
 from project.graphs import summary
 from math import log2, ceil
 from typing import Iterable
+import scipy.sparse as sp
 import numpy as np
 
 
@@ -56,7 +56,7 @@ def to_boolean_matrix(
     fa: EpsilonNFA,
     label: any,
     mapping: dict[any, int],
-) -> coo_matrix:
+) -> sp.coo_matrix:
     """
     Builds boolean adjacency matrix of FA for specified label.
     """
@@ -66,7 +66,7 @@ def to_boolean_matrix(
     if n_states != len(mapping):
         raise ValueError("mapping isn't complete")
 
-    result = dok_matrix((n_states, n_states), dtype=np.bool_)
+    result = sp.dok_matrix((n_states, n_states), dtype=np.bool_)
 
     for u, t in fa.to_dict().items():
         for s, vs in t.items():
@@ -77,13 +77,13 @@ def to_boolean_matrix(
                 except TypeError:
                     result[mapping[u], mapping[vs]] = 1
 
-    return coo_matrix(result)
+    return sp.coo_matrix(result)
 
 
 def to_boolean_matrices(
     fa: EpsilonNFA,
     mapping: dict[any, int],
-) -> dict[any, coo_matrix]:
+) -> dict[any, sp.coo_matrix]:
     """
     Builds set boolean adjacency matrices of FA for every label.
     """
@@ -92,7 +92,7 @@ def to_boolean_matrices(
 
 
 def from_boolean_matrices(
-    boolean: dict[any, coo_matrix],
+    boolean: dict[any, sp.coo_matrix],
     states: list[any] = None,
 ) -> EpsilonNFA:
     """
@@ -111,7 +111,7 @@ def from_boolean_matrices(
     return result
 
 
-def adjacency_matrix(fa: EpsilonNFA, mapping: dict[any, int]) -> coo_matrix:
+def adjacency_matrix(fa: EpsilonNFA, mapping: dict[any, int]) -> sp.coo_matrix:
     """
     Builds adjacency matrix of FA for all labels.
     """
@@ -121,7 +121,7 @@ def adjacency_matrix(fa: EpsilonNFA, mapping: dict[any, int]) -> coo_matrix:
     if n_states != len(mapping):
         raise ValueError("mapping isn't complete")
 
-    result = dok_matrix((n_states, n_states), dtype=np.bool_)
+    result = sp.dok_matrix((n_states, n_states), dtype=np.bool_)
 
     for u, t in fa.to_dict().items():
         for s, vs in t.items():
@@ -131,7 +131,7 @@ def adjacency_matrix(fa: EpsilonNFA, mapping: dict[any, int]) -> coo_matrix:
             except TypeError:
                 result[mapping[u], mapping[vs]] = 1
 
-    return coo_matrix(result)
+    return sp.coo_matrix(result)
 
 
 def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
@@ -147,7 +147,7 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
 
     same_labels = set.intersection(set(a_boolean.keys()), set(b_boolean.keys()))
     result_boolean = {
-        l: coo_matrix(kron(a_boolean[l], b_boolean[l])) for l in same_labels
+        l: sp.coo_matrix(sp.kron(a_boolean[l], b_boolean[l])) for l in same_labels
     }
 
     result_states = [None for i in range(len(a_mapping) * len(b_mapping))]
@@ -190,13 +190,13 @@ def query_graph_kron(
     c_mapping = states_mapping(c)
     c_matrix = adjacency_matrix(c, c_mapping)
 
-    c_closure = csr_matrix(c_matrix)
+    c_closure = sp.csr_matrix(c_matrix)
     for _ in range(ceil(log2(len(c_mapping)))):
         c_closure += c_closure @ c_closure
 
     start_states = {i: s.value for s, i in c_mapping.items() if s in c.start_states}
     final_states = {i: s.value for s, i in c_mapping.items() if s in c.final_states}
-    c_closure = coo_matrix(c_closure)
+    c_closure = sp.coo_matrix(c_closure)
 
     result = set()
     for i, j, v in zip(c_closure.row, c_closure.col, c_closure.data):
@@ -204,3 +204,94 @@ def query_graph_kron(
             result.add((start_states[i][1], final_states[j][1]))
 
     return result
+
+
+def regexp_reachability(
+    regexp: EpsilonNFA,
+    graph: EpsilonNFA,
+    start_nodes: set[any],
+    for_each: bool,
+):
+    """
+    Find all final nodes reachable from specified start nodes with RegExp constraints.
+
+    If `for_each` specified, return value is dist of start state to nodes, otherwise is just
+    set of final nodes.
+
+    Graph is represented as FA only for convenience, them start and final states are ignored.
+    """
+
+    regexp = regexp.minimize()
+
+    a_mapping, b_mapping = states_mapping(regexp), states_mapping(graph)
+
+    a_boolean = to_boolean_matrices(regexp, a_mapping)
+    b_boolean = to_boolean_matrices(graph, b_mapping)
+
+    same_labels = set.intersection(set(a_boolean.keys()), set(b_boolean.keys()))
+    both_boolean = {l: sp.block_diag((a_boolean[l], b_boolean[l])) for l in same_labels}
+
+    # from this moment matrices in both_boolean will be transposed
+
+    for adj_mat in both_boolean.values():
+        adj_mat.transpose()
+
+    n = len(a_mapping)  # number of regexp states
+    m = len(b_mapping)  # number of graph nodes
+
+    if for_each:
+        start_nodes_sets = {frozenset({x}) for x in start_nodes}
+    else:
+        start_nodes_sets = {frozenset(start_nodes)}
+
+    del start_nodes
+    final_states = {a_mapping[i] for i in regexp.final_states}
+    b_states = [j for _, j in sorted([(idx, s) for s, idx in b_mapping.items()])]
+
+    result = {}
+    for start_nodes in start_nodes_sets:
+        current = {
+            (a_mapping[i], b_mapping[j])
+            for i in regexp.start_states
+            for j in start_nodes
+        }
+
+        visited = set()
+        while current:
+            visited |= current
+
+            front = sp.dok_matrix((m, n), dtype=np.bool_)
+            for (i, j) in current:
+                front[j, i] = 1
+
+            front = sp.vstack((sp.identity(n, dtype=np.bool_), front), format="csr")
+
+            current = set()
+            for adj_mat in both_boolean.values():
+                next_front = sp.coo_matrix(adj_mat @ front)
+
+                a_states = [[] for _ in range(n)]
+                b_states = [[] for _ in range(n)]
+                for i, j, v in zip(next_front.row, next_front.col, next_front.data):
+                    if not v:
+                        continue
+
+                    if i < n:
+                        a_states[j].append(i)
+                    else:
+                        b_states[j].append(i - n)
+
+                current |= {
+                    (i, j) for k in range(n) for i in a_states[k] for j in b_states[k]
+                }
+
+            current -= visited
+
+        result[frozenset(start_nodes)] = {j for i, j in visited if i in final_states}
+
+    if for_each:
+        return {x: [b_states[j] for j in js] for (x,), js in result.items()}
+
+    else:
+        (result,) = result.values()
+        return result
