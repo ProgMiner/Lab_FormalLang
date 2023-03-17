@@ -302,6 +302,7 @@ def query_graph_bfs(
     regex: str,
     graph: MultiDiGraph,
     start_states: Iterable[any] = None,
+    final_states: Iterable[any] = None,
     for_each: bool = False,
 ):
     """
@@ -309,8 +310,21 @@ def query_graph_bfs(
 
     If `for_each` is `True`, returns dict of start state to set of reachable nodes,
     otherwise returns one set for all start nodes.
+
+    If final states specified, it will be used to filter results.
     """
 
     a = regex_to_dfa(regex)
     b = graph_to_nfa(graph, [], [])
-    return regexp_reachability(a, b, start_states, for_each)
+    result = regexp_reachability(a, b, start_states, for_each)
+
+    if final_states is not None:
+        if for_each:
+            result = {
+                i: {j for j in js if j in final_states} for i, js in result.items()
+            }
+
+        else:
+            result = {i for i in result if i in final_states}
+
+    return result
