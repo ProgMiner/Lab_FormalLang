@@ -28,5 +28,10 @@ def to_wcnf(cfg: CFG) -> CFG:
 
 
 def from_file(path: str) -> CFG:
+    """
+    Read CFG from file by path.
+    Syntax of file is defined by CFG.from_text.
+    """
+
     with open(path) as f:
         return CFG.from_text(f.read())
