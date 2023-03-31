@@ -1,5 +1,4 @@
-from pyformlang.cfg import CFG, Variable, Production
-from itertools import permutations
+from pyformlang.cfg import CFG
 import project.cfg as cfg
 import tempfile
 import re
