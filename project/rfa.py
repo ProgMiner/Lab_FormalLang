@@ -1,5 +1,7 @@
 from project.fa import states_mapping, to_boolean_matrices
+from pyformlang.finite_automaton import EpsilonNFA
 from pyformlang.cfg import Variable
+import scipy.sparse as sp
 
 
 class RFA:
@@ -10,7 +12,7 @@ class RFA:
     def __init__(
         self,
         start_state: Variable,
-        fas: dict[Variable, EpsilonFA],
+        fas: dict[Variable, EpsilonNFA],
     ):
         self.start_state = start_state
         self.fas = fas
@@ -24,7 +26,7 @@ class RFA:
         """
 
         result = {}
-        for var, fa in self.fas:
+        for var, fa in self.fas.items():
             mapping = states_mapping(fa)
 
             result[var] = (mapping, to_boolean_matrices(fa, mapping))
