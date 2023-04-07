@@ -32,3 +32,13 @@ class RFA:
             result[var] = (mapping, to_boolean_matrices(fa, mapping))
 
         return result
+
+    def minimize(self):
+        """
+        Return minimal RFA.
+        """
+
+        return RFA(
+            self.start_state,
+            {var: fa.minimize() for var, fa in self.fas.items()},
+        )

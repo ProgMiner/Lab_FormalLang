@@ -93,8 +93,5 @@ class ECFG:
 
             rules[prod.head].append(" ".join(terms))
 
-        for nt, terms in rules.items():
-            print(nt, " | ".join(terms))
-
         rules = {nt: Regex(" | ".join(terms)) for nt, terms in rules.items()}
         return ECFG(cfg.start_symbol, rules)
