@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from pyformlang.regular_expression import Regex
 from pyformlang.cfg import Variable
+from collections import defaultdict
 from project.rfa import RFA
 
 
@@ -25,7 +28,7 @@ class ECFG:
         return RFA(Variable(self.start_symbol), fas)
 
     @staticmethod
-    def parse(text: str, start_symbol: str = None):
+    def from_text(text: str, start_symbol: str = None) -> ECFG:
         """
         Parse ECFG from text.
         Each non-empty line of ECFG must have format "N -> regex", where
@@ -61,3 +64,37 @@ class ECFG:
             rules[nt] = Regex(rx)
 
         return ECFG(start_symbol, rules)
+
+    @staticmethod
+    def from_cfg(cfg: CFG) -> ECFG:
+        """
+        Convert pyformlang CFG to ECGF.
+        """
+
+        def escape_regex(s):
+            result = ""
+
+            for c in s:
+                if c in " .|+*()$":
+                    result += f"\\{c}"
+
+                else:
+                    result += c
+
+            return result
+
+        rules = defaultdict(list)
+
+        for prod in cfg.productions:
+            terms = []
+
+            for x in prod.body:
+                terms.append(f"{escape_regex(x.value)}")
+
+            rules[prod.head].append(" ".join(terms))
+
+        for nt, terms in rules.items():
+            print(nt, " | ".join(terms))
+
+        rules = {nt: Regex(" | ".join(terms)) for nt, terms in rules.items()}
+        return ECFG(cfg.start_symbol, rules)
