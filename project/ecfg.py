@@ -66,6 +66,15 @@ class ECFG:
         return ECFG(start_symbol, rules)
 
     @staticmethod
+    def from_file(file) -> ECFG:
+        """
+        Read ECFG from file by filename.
+        """
+
+        with open(file, "r") as f:
+            return ECFG.from_text(f.read())
+
+    @staticmethod
     def from_cfg(cfg: CFG) -> ECFG:
         """
         Convert pyformlang CFG to ECGF.
