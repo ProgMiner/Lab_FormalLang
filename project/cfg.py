@@ -44,6 +44,11 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
     (vertex, nonterminal, vertex) so that from second vertex reachable from first by nonterminal.
 
     In other words, it is edges of transitive closure of intersection of given graph and CFG.
+
+    To load graph by name from dataset use project.graphs.load_by_name.
+    To load grammar from file use from_file.
+
+    In other cases use static methods of CFG and functions of networkx.
     """
 
     cfg = to_wcnf(cfg)
@@ -109,3 +114,27 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
                 r.add((v, nk, v1))
 
     return r
+
+
+def cfpq_hellings(
+    graph: MultiDiGraph,
+    cfg: CFG,
+    start_states: Iterable[any] = None,
+    final_states: Iterable[any] = None,
+    nonterminal: Variable = None,
+) -> set[tuple[int, int]]:
+    """
+    Context free path querying graph use Hellings' algorithm.
+
+    To load graph by name from dataset use project.graphs.load_by_name.
+    To load grammar from file use from_file.
+
+    In other cases use static methods of CFG and functions of networkx.
+    """
+
+    result = set()
+    for v, n, u in hellings(graph, cfg):
+        if n == nonterminal and v in start_states and u in final_states:
+            result.add((v, u))
+
+    return result
