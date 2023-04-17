@@ -1,5 +1,6 @@
 from pyformlang.cfg import CFG, Epsilon, Terminal, Variable
 from networkx import MultiDiGraph
+from typing import Iterable
 
 
 def to_wcnf(cfg: CFG) -> CFG:
@@ -55,9 +56,7 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
 
     r = set()
     for p in cfg.productions:
-        body = p.body
-
-        print(body)
+        name = p.head
 
         if len(p.body) == 0:
             r |= {(v, name, v) for v in graph.nodes}
@@ -65,11 +64,10 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
         if len(p.body) != 1:
             continue
 
-        name, term = p.head, p.body[0]
+        term = p.body[0]
+        if isinstance(term, Terminal):
+            term = term.value
 
-        print(name, term)
-
-        if isinstance(term, Variable):
             r |= {(v, name, u) for (v, u, l) in graph.edges(data="label") if l == term}
 
     m = list(r)
@@ -77,6 +75,7 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
     while len(m) > 0:
         v, ni, u = m.pop()
 
+        new_r = set()
         for v1, nj, u1 in r:
             if u1 != v:
                 continue
@@ -93,7 +92,7 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
                     continue
 
                 m.append((v1, nk, u))
-                r.add((v1, nk, u))
+                new_r.add((v1, nk, u))
 
         for u1, nj, v1 in r:
             if u1 != u:
@@ -111,7 +110,9 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
                     continue
 
                 m.append((v, nk, v1))
-                r.add((v, nk, v1))
+                new_r.add((v, nk, v1))
+
+        r |= new_r
 
     return r
 
@@ -119,8 +120,8 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
 def cfpq_hellings(
     graph: MultiDiGraph,
     cfg: CFG,
-    start_states: Iterable[any] = None,
-    final_states: Iterable[any] = None,
+    start_nodes: Iterable[any] = None,
+    final_nodes: Iterable[any] = None,
     nonterminal: Variable = None,
 ) -> set[tuple[int, int]]:
     """
@@ -132,9 +133,18 @@ def cfpq_hellings(
     In other cases use static methods of CFG and functions of networkx.
     """
 
+    if start_nodes is None:
+        start_nodes = set(graph.nodes)
+
+    if final_nodes is None:
+        final_nodes = set(graph.nodes)
+
+    if nonterminal is None:
+        nonterminal = cfg.start_symbol
+
     result = set()
     for v, n, u in hellings(graph, cfg):
-        if n == nonterminal and v in start_states and u in final_states:
+        if n == nonterminal and v in start_nodes and u in final_nodes:
             result.add((v, u))
 
     return result
