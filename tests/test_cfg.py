@@ -113,7 +113,7 @@ def test_hellings():
         (3, Variable("b#CNF#"), 0),
     }
 
-    grammar = CFG.from_text("S -> a S b | epsilon")
+    grammar = "S -> a S b | epsilon"
 
     assert cfg.hellings(graph, grammar) == {
         (0, Variable("S"), 0),
@@ -144,11 +144,11 @@ def test_hellings():
 def test_cfpq_hellings():
     graph = graphs.build_two_cycles(1, 2, ("a", "b"))
 
-    grammar = CFG.from_text("S -> a S | epsilon")
+    grammar = "S -> a S | epsilon"
 
     assert cfg.cfpq_hellings(graph, grammar, [0]) == ({(0, 0), (0, 1)})
 
-    grammar = CFG.from_text("S -> S b | epsilon")
+    grammar = "S -> S b | epsilon"
 
     assert cfg.cfpq_hellings(graph, grammar, None, [0]) == {(0, 0), (3, 0), (2, 0)}
 
