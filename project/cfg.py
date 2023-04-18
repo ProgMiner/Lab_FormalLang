@@ -1,6 +1,7 @@
 from pyformlang.cfg import CFG, Epsilon, Terminal, Variable
 from networkx import MultiDiGraph
 from typing import Iterable
+from project import graphs
 
 
 def to_wcnf(cfg: CFG) -> CFG:
@@ -39,18 +40,25 @@ def from_file(path: str) -> CFG:
         return CFG.from_text(f.read())
 
 
-def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
+def hellings(
+    graph: MultiDiGraph | str,
+    cfg: CFG | str,
+) -> set[tuple[int, Variable, int]]:
     """
     Hellings' algorithm got graph and context free grammar and returns a set of tuples
     (vertex, nonterminal, vertex) so that from second vertex reachable from first by nonterminal.
 
     In other words, it is edges of transitive closure of intersection of given graph and CFG.
 
-    To load graph by name from dataset use project.graphs.load_by_name.
-    To load grammar from file use from_file.
-
-    In other cases use static methods of CFG and functions of networkx.
+    If graph specified by string, it loaded from dataset by name using project.graphs.load_by_name.
+    If CFG specified by string, it loaded from text using CFG.from_text.
     """
+
+    if isinstance(graph, str):
+        graph = graphs.load_by_name(graph)
+
+    if isinstance(cfg, str):
+        cfg = CFG.from_text(cfg)
 
     cfg = to_wcnf(cfg)
 
@@ -118,8 +126,8 @@ def hellings(graph: MultiDiGraph, cfg: CFG) -> set[tuple[int, Variable, int]]:
 
 
 def cfpq_hellings(
-    graph: MultiDiGraph,
-    cfg: CFG,
+    graph: MultiDiGraph | str,
+    cfg: CFG | str,
     start_nodes: Iterable[any] = None,
     final_nodes: Iterable[any] = None,
     nonterminal: Variable = None,
@@ -127,11 +135,15 @@ def cfpq_hellings(
     """
     Context free path querying graph use Hellings' algorithm.
 
-    To load graph by name from dataset use project.graphs.load_by_name.
-    To load grammar from file use from_file.
-
-    In other cases use static methods of CFG and functions of networkx.
+    If graph specified by string, it loaded from dataset by name using project.graphs.load_by_name.
+    If CFG specified by string, it loaded from text using CFG.from_text.
     """
+
+    if isinstance(graph, str):
+        graph = graphs.load_by_name(graph)
+
+    if isinstance(cfg, str):
+        cfg = CFG.from_text(cfg)
 
     if start_nodes is None:
         start_nodes = set(graph.nodes)
