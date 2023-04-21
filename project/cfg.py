@@ -1,7 +1,10 @@
 from pyformlang.cfg import CFG, Epsilon, Terminal, Variable
 from networkx import MultiDiGraph
 from typing import Iterable
+from math import log2, ceil
 from project import graphs
+import scipy.sparse as sp
+import numpy as np
 
 
 def to_wcnf(cfg: CFG) -> CFG:
@@ -158,5 +161,82 @@ def cfpq_hellings(
     for v, n, u in hellings(graph, cfg):
         if n == nonterminal and v in start_nodes and u in final_nodes:
             result.add((v, u))
+
+    return result
+
+
+def matrix_algorithm(
+    graph: MultiDiGraph | str,
+    cfg: CFG | str,
+) -> set[tuple[int, Variable, int]]:
+    """
+    Matrix algorithm got graph and context free grammar and returns a set of tuples
+    (vertex, nonterminal, vertex) so that from second vertex reachable from first by nonterminal.
+
+    In other words, it is edges of transitive closure of intersection of given graph and CFG.
+
+    If graph specified by string, it loaded from dataset by name using project.graphs.load_by_name.
+    If CFG specified by string, it loaded from text using CFG.from_text.
+    """
+
+    if isinstance(graph, str):
+        graph = graphs.load_by_name(graph)
+
+    if isinstance(cfg, str):
+        cfg = CFG.from_text(cfg)
+
+    cfg = to_wcnf(cfg)
+
+    n = graph.number_of_nodes()
+    matrices = {nt: sp.dok_matrix((n, n), dtype=np.bool_) for nt in cfg.variables}
+
+    for p in cfg.productions:
+        matrix = matrices[p.head]
+
+        if len(p.body) == 0:
+            for i in range(n):
+                matrix[i, i] = 1
+
+        if len(p.body) != 1:
+            continue
+
+        term = p.body[0]
+        if isinstance(term, Terminal):
+            term = term.value
+
+            for (v, u, l) in graph.edges(data="label"):
+                if l == term:
+                    matrix[v, u] = 1
+
+    matrices = {nt: m.tocsr() for nt, m in matrices.items()}
+
+    while True:
+        new_matrices = {
+            nt: sp.csr_matrix((n, n), dtype=np.bool_) for nt in cfg.variables
+        }
+
+        for p in cfg.productions:
+            if len(p.body) != 2:
+                continue
+
+            new_matrices[p.head] += matrices[p.body[0]] @ matrices[p.body[1]]
+
+        old_nonzeroes = {nt: m.count_nonzero() for nt, m in matrices.items()}
+
+        for nt, m in new_matrices.items():
+            matrices[nt] += m
+
+        new_nonzeroes = {nt: m.count_nonzero() for nt, m in matrices.items()}
+
+        if old_nonzeroes == new_nonzeroes:
+            break
+
+    result = set()
+    for nt, m in matrices.items():
+        m = m.tocoo()
+
+        for i, j, v in zip(m.row, m.col, m.data):
+            if v:
+                result.add((i, nt, j))
 
     return result
