@@ -160,3 +160,86 @@ def test_cfpq_hellings():
         (1, 2),
         (1, 3),
     }
+
+
+def test_matrix_algorithm():
+    graph = graphs.build_two_cycles(1, 2, ("a", "b"))
+
+    grammar = CFG.from_text("S -> a S | epsilon")
+
+    assert cfg.matrix_algorithm(graph, grammar) == {
+        (0, Variable("S"), 0),
+        (1, Variable("S"), 1),
+        (2, Variable("S"), 2),
+        (3, Variable("S"), 3),
+        (0, Variable("S"), 1),
+        (1, Variable("S"), 0),
+        (1, Variable("a#CNF#"), 0),
+        (0, Variable("a#CNF#"), 1),
+    }
+
+    grammar = CFG.from_text("S -> S b | epsilon")
+
+    assert cfg.matrix_algorithm(graph, grammar) == {
+        (0, Variable("S"), 0),
+        (0, Variable("S"), 2),
+        (0, Variable("S"), 3),
+        (1, Variable("S"), 1),
+        (2, Variable("S"), 0),
+        (2, Variable("S"), 2),
+        (2, Variable("S"), 3),
+        (3, Variable("S"), 0),
+        (3, Variable("S"), 2),
+        (3, Variable("S"), 3),
+        (0, Variable("b#CNF#"), 2),
+        (2, Variable("b#CNF#"), 3),
+        (3, Variable("b#CNF#"), 0),
+    }
+
+    grammar = "S -> a S b | epsilon"
+
+    assert cfg.matrix_algorithm(graph, grammar) == {
+        (0, Variable("S"), 0),
+        (0, Variable("S"), 2),
+        (0, Variable("S"), 3),
+        (1, Variable("S"), 0),
+        (1, Variable("S"), 1),
+        (1, Variable("S"), 2),
+        (1, Variable("S"), 3),
+        (2, Variable("S"), 2),
+        (3, Variable("S"), 3),
+        (0, Variable("a#CNF#"), 1),
+        (1, Variable("a#CNF#"), 0),
+        (0, Variable("b#CNF#"), 2),
+        (2, Variable("b#CNF#"), 3),
+        (3, Variable("b#CNF#"), 0),
+        (0, Variable("C#CNF#1"), 0),
+        (0, Variable("C#CNF#1"), 2),
+        (0, Variable("C#CNF#1"), 3),
+        (1, Variable("C#CNF#1"), 0),
+        (1, Variable("C#CNF#1"), 2),
+        (1, Variable("C#CNF#1"), 3),
+        (2, Variable("C#CNF#1"), 3),
+        (3, Variable("C#CNF#1"), 0),
+    }
+
+
+def test_cfpq_matrix():
+    graph = graphs.build_two_cycles(1, 2, ("a", "b"))
+
+    grammar = "S -> a S | epsilon"
+
+    assert cfg.cfpq_matrix(graph, grammar, [0]) == ({(0, 0), (0, 1)})
+
+    grammar = "S -> S b | epsilon"
+
+    assert cfg.cfpq_matrix(graph, grammar, None, [0]) == {(0, 0), (3, 0), (2, 0)}
+
+    grammar = CFG.from_text("S -> a S b | epsilon")
+
+    assert cfg.cfpq_matrix(graph, grammar, [0, 1], [2, 3]) == {
+        (0, 2),
+        (0, 3),
+        (1, 2),
+        (1, 3),
+    }

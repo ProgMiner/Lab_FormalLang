@@ -240,3 +240,40 @@ def matrix_algorithm(
                 result.add((i, nt, j))
 
     return result
+
+
+def cfpq_matrix(
+    graph: MultiDiGraph | str,
+    cfg: CFG | str,
+    start_nodes: Iterable[any] = None,
+    final_nodes: Iterable[any] = None,
+    nonterminal: Variable = None,
+) -> set[tuple[int, int]]:
+    """
+    Context free path querying graph use matrix algorithm.
+
+    If graph specified by string, it loaded from dataset by name using project.graphs.load_by_name.
+    If CFG specified by string, it loaded from text using CFG.from_text.
+    """
+
+    if isinstance(graph, str):
+        graph = graphs.load_by_name(graph)
+
+    if isinstance(cfg, str):
+        cfg = CFG.from_text(cfg)
+
+    if start_nodes is None:
+        start_nodes = set(graph.nodes)
+
+    if final_nodes is None:
+        final_nodes = set(graph.nodes)
+
+    if nonterminal is None:
+        nonterminal = cfg.start_symbol
+
+    result = set()
+    for v, n, u in matrix_algorithm(graph, cfg):
+        if n == nonterminal and v in start_nodes and u in final_nodes:
+            result.add((v, u))
+
+    return result
