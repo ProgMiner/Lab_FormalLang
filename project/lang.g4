@@ -15,7 +15,7 @@ COMMENT: '//' .*? '\n' -> skip;
 WS: S+ -> skip;
 
 program
-    : stmts+=stmt* EOF
+    : (stmts+=stmt ';')* EOF
     ;
 
 stmt
@@ -29,7 +29,7 @@ expr
     | what=expr_get_clause 'of' sm=expr     # expr__get
     | value=expr 'mapped' 'with' f=expr     # expr__map
     | value=expr 'filtered' 'with' f=expr   # expr__filter
-    | 'load' name=value                     # expr__load
+    | 'load' name=STRING                    # expr__load
     | '-' value=expr                        # expr__unary_minus
     | left=expr '+' right=expr              # expr__plus
     | left=expr '-' right=expr              # expr__minus
@@ -38,6 +38,17 @@ expr
     | left=expr '|' right=expr              # expr__or
     | left=expr '&' right=expr              # expr__and
     | '(' sm=expr ')' '*'                   # expr__star
+    | left=expr '==' right=expr             # expr__equals
+    | left=expr '!=' right=expr             # expr__not_equals
+    | left=expr '<' right=expr              # expr__lt
+    | left=expr '>' right=expr              # expr__gt
+    | left=expr '<=' right=expr             # expr__le
+    | left=expr '>=' right=expr             # expr__ge
+    | left=expr 'or' right=expr             # expr__or
+    | left=expr 'and' right=expr            # expr__and
+    | 'not' value=expr                      # expr__not
+    | left=expr 'in' right=expr             # expr__in
+    | left=expr 'not' 'in' right=expr       # expr__not_in
     | name=NAME                             # expr__name
     | value=literal                         # expr__literal
     ;
@@ -59,8 +70,15 @@ expr_get_clause
     ;
 
 literal
-    : value=STRING                      # literal__string
-    | value=INT_NUMBER                  # literal__int
-    | value=REAL_NUMBER                 # literal__real
-    | '\\' param=NAME '->' body=expr    # literal__lambda
+    : value=STRING                              # literal__string
+    | value=INT_NUMBER                          # literal__int
+    | value=REAL_NUMBER                         # literal__real
+    | INT_NUMBER '..' INT_NUMBER                # literal__range
+    | '{' ((elems+=expr ',')* elems+=expr)? '}' # literal__set
+    | '\\' param=pattern '->' body=expr         # literal__lambda
+    ;
+
+pattern
+    : name=NAME                                     # pattern__name
+    | '(' (elems+=pattern ',')* elems+=pattern ')'  # pattern__tuple
     ;
