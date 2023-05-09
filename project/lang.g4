@@ -23,6 +23,8 @@ stmt
     | ('print' | '>>>')? expr           # stmt__expr
     ;
 
+// TODO fix precedence and associativity
+
 expr
     : '(' expr_=expr ')'                    # expr__parens
     | sm=expr 'with' what=expr_set_clause   # expr__set
@@ -37,7 +39,7 @@ expr
     | left=expr '/' right=expr              # expr__div
     | left=expr '|' right=expr              # expr__or
     | left=expr '&' right=expr              # expr__and
-    | '(' sm=expr ')' '*'                   # expr__star
+    | value=expr '*'                        # expr__star
     | left=expr '==' right=expr             # expr__equals
     | left=expr '!=' right=expr             # expr__not_equals
     | left=expr '<' right=expr              # expr__lt
