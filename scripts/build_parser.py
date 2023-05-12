@@ -9,7 +9,17 @@ def main():
     shared.configure_python_path()
 
     os.chdir("./project")
-    subprocess.check_call(["antlr4", "-Dlanguage=Python3", "-o", "parser", "lang.g4"])
+    subprocess.check_call(
+        [
+            "antlr4",
+            "-Dlanguage=Python3",
+            "-no-listener",
+            "-visitor",
+            "-o",
+            "parser",
+            "lang.g4",
+        ]
+    )
 
 
 if __name__ == "__main__":
