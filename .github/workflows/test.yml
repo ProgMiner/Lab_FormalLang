@@ -27,6 +27,10 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip list
 
+      - name: Build parser
+        run: |
+          ./scripts/build_parser.py
+
       - name: Run tests
         run: |
           ./scripts/run_tests.py
