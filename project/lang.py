@@ -49,3 +49,16 @@ def parse(text: str = None, *, filename: str = None, encoding: str = "utf-8"):
         stream = StdinStream(encoding=encoding)
 
     return parse_stream(stream)
+
+
+def check_syntax(text: str = None, *, filename: str = None, encoding: str = "utf-8"):
+    """
+    Checks is parser can recognize syntax. Parameters are similar to parse function.
+    """
+
+    try:
+        parse(text=text, filename=filename, encoding=encoding)
+        return True
+
+    except RecognitionError:
+        return False
