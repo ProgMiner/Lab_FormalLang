@@ -1,4 +1,4 @@
-language lang;
+grammar lang;
 
 fragment W: [a-zA-Z_];
 fragment D: [0-9];
