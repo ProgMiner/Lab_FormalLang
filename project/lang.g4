@@ -14,45 +14,36 @@ BLOCK_COMMENT: '/*' (BLOCK_COMMENT|.)*? '*/' -> skip;
 COMMENT: '//' .*? '\n' -> skip;
 WS: S+ -> skip;
 
+// here we allow to use any number of spaces betwen 'not' and 'in'
+// but we need to sanitize them in future
+NOT_IN: 'not' WS 'in';
+
 program
     : (stmts+=stmt ';')* EOF
     ;
 
 stmt
     : 'let' name=NAME '=' value=expr    # stmt__let
-    | ('print' | '>>>')? expr           # stmt__expr
+    | ('print' | '>>>')? value=expr     # stmt__expr
     ;
 
 // TODO fix precedence and associativity
 
 expr
-    : '(' expr_=expr ')'                    # expr__parens
-    | sm=expr 'with' what=expr_set_clause   # expr__set
-    | what=expr_get_clause 'of' sm=expr     # expr__get
-    | value=expr 'mapped' 'with' f=expr     # expr__map
-    | value=expr 'filtered' 'with' f=expr   # expr__filter
-    | 'load' name=STRING                    # expr__load
-    | '-' value=expr                        # expr__unary_minus
-    | left=expr '+' right=expr              # expr__plus
-    | left=expr '-' right=expr              # expr__minus
-    | left=expr '*' right=expr              # expr__mult
-    | left=expr '/' right=expr              # expr__div
-    | left=expr '|' right=expr              # expr__or
-    | left=expr '&' right=expr              # expr__and
-    | value=expr '*'                        # expr__star
-    | left=expr '==' right=expr             # expr__equals
-    | left=expr '!=' right=expr             # expr__not_equals
-    | left=expr '<' right=expr              # expr__lt
-    | left=expr '>' right=expr              # expr__gt
-    | left=expr '<=' right=expr             # expr__le
-    | left=expr '>=' right=expr             # expr__ge
-    | left=expr 'or' right=expr             # expr__or
-    | left=expr 'and' right=expr            # expr__and
-    | 'not' value=expr                      # expr__not
-    | left=expr 'in' right=expr             # expr__in
-    | left=expr 'not' 'in' right=expr       # expr__not_in
-    | name=NAME                             # expr__name
-    | value=literal                         # expr__literal
+    : '(' expr_=expr ')'                                                # expr__parens
+    | sm=expr 'with' what=expr_set_clause                               # expr__set
+    | what=expr_get_clause 'of' sm=expr                                 # expr__get
+    | value=expr op=('mapped'|'filtered') 'with' f=expr                 # expr__map_filter
+    | value=expr op='*'                                                 # expr__unary_op
+    | op=('-'|'not') value=expr                                         # expr__unary_op
+    | left=expr op=('*'|'/'|'&') right=expr                             # expr__binary_op
+    | left=expr op=('+'|'-'|'|') right=expr                             # expr__binary_op
+    | left=expr op=('=='|'!='|'<'|'>'|'<='|'>='|'in'|NOT_IN) right=expr # expr__binary_op
+    | left=expr op='and' right=expr                                     # expr__binary_op
+    | left=expr op='or' right=expr                                      # expr__binary_op
+    | 'load' name=STRING                                                # expr__load
+    | name=NAME                                                         # expr__name
+    | value=literal                                                     # expr__literal
     ;
 
 expr_set_clause
@@ -72,15 +63,15 @@ expr_get_clause
     ;
 
 literal
-    : value=STRING                              # literal__string
-    | value=INT_NUMBER                          # literal__int
-    | value=REAL_NUMBER                         # literal__real
-    | INT_NUMBER '..' INT_NUMBER                # literal__range
-    | '{' ((elems+=expr ',')* elems+=expr)? '}' # literal__set
-    | '\\' param=pattern '->' body=expr         # literal__lambda
+    : value=STRING                                      # literal__string
+    | value=INT_NUMBER                                  # literal__int
+    | value=REAL_NUMBER                                 # literal__real
+    | from=INT_NUMBER '..' to=INT_NUMBER                # literal__range
+    | '{' ((elems+=expr ',')* elems+=expr ','?)? '}'    # literal__set
+    | '\\' param=pattern '->' body=expr                 # literal__lambda
     ;
 
 pattern
-    : name=NAME                                     # pattern__name
-    | '(' (elems+=pattern ',')* elems+=pattern ')'  # pattern__tuple
+    : name=NAME                                         # pattern__name
+    | '(' (elems+=pattern ',')+ elems+=pattern ','? ')' # pattern__tuple
     ;
