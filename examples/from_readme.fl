@@ -1,0 +1,24 @@
+// загрузка графа generations и связывание с именем g
+
+let g = load "generations";
+
+// вывод множества вершин, рёбер и меток графа g
+>>> nodes of g;
+>>> edges of g;
+>>> labels of g;
+
+// связывание имени g с новым графом, образованным из g путём установки множества конечных состояний
+let g = g with only final states { 21 };
+
+// определение КА и связывание с именем q
+let q = ("equivalentClass" | "first") + "type"* + "type";
+
+// вывод пар достижимых вершин в пересечении g и q
+>>> reachable states of (g & q);
+
+// порождение множества из диапазона с помощью mapped with и filtered with
+>>> 0..10
+    mapped with (\x -> x * 2)
+    mapped with (\x -> x + 3)
+    filtered with (\x -> 0 < x and x < 5)
+    ;
