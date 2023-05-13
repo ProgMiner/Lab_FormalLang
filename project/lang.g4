@@ -6,12 +6,12 @@ fragment WD: (W|D);
 fragment S: [ \t\r\n\u000C];
 
 INT_NUMBER: [1-9][0-9]*|'0';
-REAL_NUMBER: ([1-9][0-9]*)?'.'([0-9]*[1-9]([eE]'-'?[1-9][0-9]*)?|'0')|[1-9][0-9]*[eE]'-'?[1-9][0-9]*;
+REAL_NUMBER: ([1-9][0-9]*|'0')?'.'([0-9]*[1-9]([eE]'-'?[1-9][0-9]*)?|'0')|[1-9][0-9]*[eE]'-'?[1-9][0-9]*;
 STRING: '"' ('\\'. | (~'"')+)* '"';
 NAME: W WD*;
 
 BLOCK_COMMENT: '/*' (BLOCK_COMMENT|.)*? '*/' -> skip;
-COMMENT: '//' .*? '\n' -> skip;
+COMMENT: '//' .*? ('\n'|EOF) -> skip;
 WS: S+ -> skip;
 
 // here we allow to use any number of spaces betwen 'not' and 'in'

@@ -66,6 +66,17 @@ def check_syntax(text: str = None, *, filename: str = None, encoding: str = "utf
         return False
 
 
+def write_to_dot(tree: ParserRuleContext, filename: str):
+    """
+    Draws specified parsing tree and writes to DOT file with specified filename.
+    """
+
+    visitor = DotTreeVisitor()
+    tree.accept(visitor)
+
+    visitor.graph.write_dot(filename)
+
+
 class DotTreeVisitor(LangVisitor):
     def __init__(self):
         self.graph = Dot("lang parse tree")
@@ -434,14 +445,3 @@ class DotTreeVisitor(LangVisitor):
             self.graph.add_edge(Edge(node, child, label=str(i)))
 
         return node
-
-
-def write_to_dot(tree: ParserRuleContext, filename: str):
-    """
-    Draws specified parsing tree and writes to DOT file with specified filename.
-    """
-
-    visitor = DotTreeVisitor()
-    tree.accept(visitor)
-
-    visitor.graph.write_dot(filename)
