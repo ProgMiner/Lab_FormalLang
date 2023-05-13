@@ -34,3 +34,7 @@ jobs:
       - name: Run tests
         run: |
           ./scripts/run_tests.py
+
+      - name: Check DOT working
+        run: |
+          ./scripts/run_parser.py < ./examples/from_readme.fl

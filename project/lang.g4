@@ -27,8 +27,6 @@ stmt
     | ('print' | '>>>')? value=expr     # stmt__expr
     ;
 
-// TODO fix precedence and associativity
-
 expr
     : '(' expr_=expr ')'                                                # expr__parens
     | sm=expr 'with' what=expr_set_clause                               # expr__set
