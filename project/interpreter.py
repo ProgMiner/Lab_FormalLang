@@ -1,5 +1,6 @@
 from pyformlang.finite_automaton import EpsilonNFA
 from collections import namedtuple
+from project import fa as fa
 from typing import Iterable
 from antlr4 import *
 
@@ -263,78 +264,6 @@ class InterpretVisitor(LangVisitor):
 
         # T-Load
 
-    # Visit a parse tree produced by LangParser#expr__set.
-    def visitExpr__set(self, ctx: LangParser.Expr__setContext):
-        self._enter_ctx(ctx)
-
-        sm = ctx.sm.accept(self)
-
-        casted_sm = cast_string_to_FA(sm, ctx)
-        if not isinstance(casted_sm, LangValueFA):
-            raise type_error(sm, "FA")
-
-        what_value = ctx.what_value.accept(self)
-
-        result = casted_sm.value.copy()
-
-        ctx.what.accept(self)(result, what_value)
-
-        result = LangValueFA(value=result, ctx=ctx)
-
-        self._exit_ctx()
-
-        return result
-
-    # Visit a parse tree produced by LangParser#expr__get.
-    def visitExpr__get(self, ctx: LangParser.Expr__getContext):
-        self._enter_ctx(ctx)
-
-        # delegate logic
-        value = ctx.what.accept(self)
-
-        self._exit_ctx()
-
-        return value
-
-    # Visit a parse tree produced by LangParser#expr__map_filter.
-    def visitExpr__map_filter(self, ctx: LangParser.Expr__map_filterContext):
-        self._enter_ctx(ctx)
-
-        value = ctx.value.accept(self)
-
-        # T-Map, T-Filter
-
-        if not isinstance(value, LangValueSet):
-            raise type_error(value, "set")
-
-        f = ctx.f.accept(self)
-
-        if not isinstance(f, LangValueLambda):
-            raise type_error(f, "lambda")
-
-        if ctx.op.text == "mapped":
-            result = {f.value(x) for x in value.value}
-
-        elif ctx.op.text == "filtered":
-            result = set()
-
-            for x in value.value:
-                res = f.value(x)
-
-                # T-Filter
-                if not isinstance(res, LangValueBoolean):
-                    raise type_error(res, "boolean")
-
-                if res.value:
-                    result.add(x)
-
-        else:
-            raise ValueError("unknown operator")
-
-        self._exit_ctx()
-
-        return LangValueSet(value=result, ctx=ctx)
-
     # Visit a parse tree produced by LangParser#expr__unary_op.
     def visitExpr__unary_op(self, ctx: LangParser.Expr__unary_opContext):
         self._enter_ctx(ctx)
@@ -348,7 +277,7 @@ class InterpretVisitor(LangVisitor):
             if not isinstance(casted_value, LangValueFA):
                 raise type_error(value, "FA")
 
-            raise NotImplementedError
+            result = LangValueFA(value=fa.kleene_star(casted_value.value), ctx=ctx)
 
         elif ctx.op.text == "-":
             if isinstance(value, LangValueInt):
@@ -612,7 +541,10 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(casted_right, LangValueFA):
                     raise type_error(right, "FA")
 
-                raise NotImplementedError
+                result = LangValueFA(
+                    value=fa.union(casted_left.value, casted_right.value),
+                    ctx=ctx,
+                )
 
             else:
                 raise type_error(left, ["int", "set", "FA"])
@@ -692,6 +624,78 @@ class InterpretVisitor(LangVisitor):
 
         return result
 
+    # Visit a parse tree produced by LangParser#expr__set.
+    def visitExpr__set(self, ctx: LangParser.Expr__setContext):
+        self._enter_ctx(ctx)
+
+        sm = ctx.sm.accept(self)
+
+        casted_sm = cast_string_to_FA(sm, ctx)
+        if not isinstance(casted_sm, LangValueFA):
+            raise type_error(sm, "FA")
+
+        what_value = ctx.what_value.accept(self)
+
+        result = casted_sm.value.copy()
+
+        ctx.what.accept(self)(result, what_value)
+
+        result = LangValueFA(value=result, ctx=ctx)
+
+        self._exit_ctx()
+
+        return result
+
+    # Visit a parse tree produced by LangParser#expr__get.
+    def visitExpr__get(self, ctx: LangParser.Expr__getContext):
+        self._enter_ctx(ctx)
+
+        # delegate logic
+        value = ctx.what.accept(self)
+
+        self._exit_ctx()
+
+        return value
+
+    # Visit a parse tree produced by LangParser#expr__map_filter.
+    def visitExpr__map_filter(self, ctx: LangParser.Expr__map_filterContext):
+        self._enter_ctx(ctx)
+
+        value = ctx.value.accept(self)
+
+        # T-Map, T-Filter
+
+        if not isinstance(value, LangValueSet):
+            raise type_error(value, "set")
+
+        f = ctx.f.accept(self)
+
+        if not isinstance(f, LangValueLambda):
+            raise type_error(f, "lambda")
+
+        if ctx.op.text == "mapped":
+            result = {f.value(x) for x in value.value}
+
+        elif ctx.op.text == "filtered":
+            result = set()
+
+            for x in value.value:
+                res = f.value(x)
+
+                # T-Filter
+                if not isinstance(res, LangValueBoolean):
+                    raise type_error(res, "boolean")
+
+                if res.value:
+                    result.add(x)
+
+        else:
+            raise ValueError("unknown operator")
+
+        self._exit_ctx()
+
+        return LangValueSet(value=result, ctx=ctx)
+
     # Visit a parse tree produced by LangParser#expr_set_clause__set_start_states.
     def visitExpr_set_clause__set_start_states(
         self,
@@ -703,8 +707,7 @@ class InterpretVisitor(LangVisitor):
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
-            for s in set(sm.start_states):
-                sm.remove_start_state(s)
+            sm.start_states.clear()
 
             for s in value_to_python_value(states):
                 sm.add_start_state(s)
@@ -722,8 +725,7 @@ class InterpretVisitor(LangVisitor):
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
-            for s in set(sm.final_states):
-                sm.remove_final_state(s)
+            sm.final_states.clear()
 
             for s in value_to_python_value(states):
                 sm.add_final_state(s)

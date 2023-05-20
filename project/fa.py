@@ -265,8 +265,7 @@ def regexp_reachability(
             front = sp.vstack((sp.identity(n, dtype=np.bool_), front), format="csr")
 
             current = set()
-            # for adj_mat in both_boolean.values():
-            for lbl, adj_mat in both_boolean.items():
+            for adj_mat in both_boolean.values():
                 next_front = sp.coo_matrix(adj_mat @ front)
 
                 a_states = [[] for _ in range(n)]
@@ -326,5 +325,71 @@ def query_graph_bfs(
 
         else:
             result = {i for i in result if i in final_states}
+
+    return result
+
+
+def union(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
+    a_states = {st: 2 + i for i, st in enumerate(a.states)}
+    b_states = {st: 2 + len(a.states) + i for i, st in enumerate(b.states)}
+    s, t = 0, 1
+
+    result = EpsilonNFA(
+        states=set({s, t} | a_states.keys() | b_states.keys()),
+        input_symbols=set(a.symbols | b.symbols),
+        start_state={s},
+        final_states={t},
+    )
+
+    result.add_transitions(
+        [
+            (a_states[u], l, a_states[v])
+            for u, x in a.to_dict().items()
+            for l, vs in x.items()
+            for v in vs
+        ]
+    )
+
+    result.add_transitions(
+        [
+            (b_states[u], l, b_states[v])
+            for u, x in b.to_dict().items()
+            for l, vs in x.items()
+            for v in vs
+        ]
+    )
+
+    result.add_transitions([(s, "epsilon", a_states[x]) for x in a.start_states])
+    result.add_transitions([(s, "epsilon", b_states[x]) for x in b.start_states])
+
+    result.add_transitions([(a_states[x], "epsilon", t) for x in a.final_states])
+    result.add_transitions([(b_states[x], "epsilon", t) for x in b.final_states])
+
+    return result
+
+
+def kleene_star(fa: EpsilonNFA) -> EpsilonNFA:
+    fa_states = {st: 2 + i for i, st in enumerate(fa.states)}
+    s, t = 0, 1
+
+    result = EpsilonNFA(
+        states=set({0, 1} | fa.states),
+        input_symbols=fa.symbols.copy(),
+        start_state={s},
+        final_states={t},
+    )
+
+    result.add_transitions(
+        [
+            (fa_states[u], l, fa_states[v])
+            for u, x in fa.to_dict().items()
+            for l, vs in x.items()
+            for v in vs
+        ]
+    )
+
+    result.add_transitions([(s, "epsilon", fa_states[x]) for x in fa.start_states])
+    result.add_transitions([(fa_states[x], "epsilon", t) for x in fa.final_states])
+    result.add_transitions([(s, "epsilon", t), (t, "epsilon", s)])
 
     return result
