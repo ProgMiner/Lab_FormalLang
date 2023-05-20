@@ -152,6 +152,8 @@ def cast_string_to_FA(value: LangValue, ctx: ParserRuleContext) -> LangValue:
     if not isinstance(value, LangValueString):
         return value
 
+    # T-Smb
+
     fa = EpsilonNFA()
     fa.add_transition(0, value.value, 1)
     fa.add_start_state(0)
@@ -227,6 +229,40 @@ class InterpretVisitor(LangVisitor):
 
         return value
 
+    # Visit a parse tree produced by LangParser#expr__name.
+    def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
+        self._enter_ctx(ctx)
+
+        # T-Name
+
+        try:
+            result = self.scopes[-1][ctx.name.text]
+
+        except KeyError as e:
+            raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
+
+        self._exit_ctx()
+
+        return result
+
+    # Visit a parse tree produced by LangParser#expr__literal.
+    def visitExpr__literal(self, ctx: LangParser.Expr__literalContext):
+        self._enter_ctx(ctx)
+
+        value = ctx.value.accept(self)
+
+        self._exit_ctx()
+
+        return value
+
+    # Visit a parse tree produced by LangParser#expr__load.
+    def visitExpr__load(self, ctx: LangParser.Expr__loadContext):
+        self._enter_ctx(ctx)
+
+        raise NotImplementedError
+
+        # T-Load
+
     # Visit a parse tree produced by LangParser#expr__set.
     def visitExpr__set(self, ctx: LangParser.Expr__setContext):
         self._enter_ctx(ctx)
@@ -267,12 +303,12 @@ class InterpretVisitor(LangVisitor):
         value = ctx.value.accept(self)
 
         # T-Map, T-Filter
+
         if not isinstance(value, LangValueSet):
             raise type_error(value, "set")
 
         f = ctx.f.accept(self)
 
-        # T-Map, T-Filter
         if not isinstance(f, LangValueLambda):
             raise type_error(f, "lambda")
 
@@ -280,7 +316,17 @@ class InterpretVisitor(LangVisitor):
             result = {f.value(x) for x in value.value}
 
         elif ctx.op.text == "filtered":
-            result = {x for x in value.value if f.value(x)}
+            result = set()
+
+            for x in value.value:
+                res = f.value(x)
+
+                # T-Filter
+                if not isinstance(res, LangValueBoolean):
+                    raise type_error(res, "boolean")
+
+                if res.value:
+                    result.add(x)
 
         else:
             raise ValueError("unknown operator")
@@ -572,34 +618,72 @@ class InterpretVisitor(LangVisitor):
                 raise type_error(left, ["int", "set", "FA"])
 
         elif ctx.op.text == "==":
+            # T-Equals
+
             result = LangValueBoolean(value=left.value == right.value, ctx=ctx)
 
         elif ctx.op.text == "!=":
+            # T-NotEquals
+
             result = LangValueBoolean(value=left.value != right.value, ctx=ctx)
 
         elif ctx.op.text == "<":
+            # T-Less
+
             result = LangValueBoolean(value=left.value < right.value, ctx=ctx)
 
         elif ctx.op.text == ">":
+            # T-Greater
+
             result = LangValueBoolean(value=left.value > right.value, ctx=ctx)
 
         elif ctx.op.text == "<=":
+            # T-LessEquals
+
             result = LangValueBoolean(value=left.value <= right.value, ctx=ctx)
 
         elif ctx.op.text == ">=":
+            # T-GreaterEquals
+
             result = LangValueBoolean(value=left.value >= right.value, ctx=ctx)
 
         elif ctx.op.text == "in":
+            # T-In
+
             result = LangValueBoolean(
                 value=any([left.value == x.value for x in right.value]),
                 ctx=ctx,
             )
 
         elif ctx.op.type == LangLexer.NOT_IN:
+            # T-NotIn
+
             result = LangValueBoolean(
                 value=all([left.value != x.value for x in right.value]),
                 ctx=ctx,
             )
+
+        elif ctx.op.text == "and":
+            # T-And
+
+            if not isinstance(left, LangValueBoolean):
+                raise type_error(left, "boolean")
+
+            if not isinstance(right, LangValueBoolean):
+                raise type_error(right, "boolean")
+
+            result = LangValueBoolean(value=left.value and right.value, ctx=ctx)
+
+        elif ctx.op.text == "or":
+            # T-Or
+
+            if not isinstance(left, LangValueBoolean):
+                raise type_error(left, "boolean")
+
+            if not isinstance(right, LangValueBoolean):
+                raise type_error(right, "boolean")
+
+            result = LangValueBoolean(value=left.value or right.value, ctx=ctx)
 
         else:
             raise ValueError("unknown operator")
@@ -608,42 +692,14 @@ class InterpretVisitor(LangVisitor):
 
         return result
 
-    # Visit a parse tree produced by LangParser#expr__load.
-    def visitExpr__load(self, ctx: LangParser.Expr__loadContext):
-        self._enter_ctx(ctx)
-
-        raise NotImplementedError
-
-    # Visit a parse tree produced by LangParser#expr__name.
-    def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
-        self._enter_ctx(ctx)
-
-        try:
-            result = self.scopes[-1][ctx.name.text]
-
-        except KeyError as e:
-            raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
-
-        self._exit_ctx()
-
-        return result
-
-    # Visit a parse tree produced by LangParser#expr__literal.
-    def visitExpr__literal(self, ctx: LangParser.Expr__literalContext):
-        self._enter_ctx(ctx)
-
-        value = ctx.value.accept(self)
-
-        self._exit_ctx()
-
-        return value
-
     # Visit a parse tree produced by LangParser#expr_set_clause__set_start_states.
     def visitExpr_set_clause__set_start_states(
         self,
         ctx: LangParser.Expr_set_clause__set_start_statesContext,
     ):
         def result(sm, states):
+            # T-WithOnlyStartStates
+
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
@@ -661,6 +717,8 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__set_final_statesContext,
     ):
         def result(sm, states):
+            # T-WithOnlyFinalStates
+
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
@@ -678,6 +736,8 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_start_statesContext,
     ):
         def result(sm, states):
+            # T-WithStartStates
+
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
@@ -692,6 +752,8 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_final_statesContext,
     ):
         def result(sm, states):
+            # T-WithFinalStates
+
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
 
@@ -714,13 +776,15 @@ class InterpretVisitor(LangVisitor):
         value = expr_ctx.sm.accept(self)
 
         # T-StartStatesOf
-        if not isinstance(value, LangValueFA):
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
             raise type_error(value, "FA")
 
         return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx)
-                for x in value.value.start_states
+                for x in casted_value.value.start_states
             },
             ctx=expr_ctx,
         )
@@ -739,13 +803,15 @@ class InterpretVisitor(LangVisitor):
         value = expr_ctx.sm.accept(self)
 
         # T-FinalStatesOf
-        if not isinstance(value, LangValueFA):
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
             raise type_error(value, "FA")
 
         return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx)
-                for x in value.value.final_states
+                for x in casted_value.value.final_states
             },
             ctx=expr_ctx,
         )
@@ -758,6 +824,8 @@ class InterpretVisitor(LangVisitor):
         self._enter_ctx(ctx)
 
         raise NotImplementedError
+
+        # T-ReachableStatesOf
 
     # Visit a parse tree produced by LangParser#expr_get_clause__nodes.
     def visitExpr_get_clause__nodes(
@@ -773,12 +841,15 @@ class InterpretVisitor(LangVisitor):
         value = expr_ctx.sm.accept(self)
 
         # T-NodesOf
-        if not isinstance(value, LangValueFA):
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
             raise type_error(value, "FA")
 
         return LangValueSet(
             value={
-                python_value_to_value(x.value, expr_ctx) for x in value.value.states
+                python_value_to_value(x.value, expr_ctx)
+                for x in casted_value.value.states
             },
             ctx=expr_ctx,
         )
@@ -797,14 +868,17 @@ class InterpretVisitor(LangVisitor):
         value = expr_ctx.sm.accept(self)
 
         # T-EdgesOf
-        if not isinstance(value, LangValueFA):
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
             raise type_error(value, "FA")
 
         return LangValueSet(
             value={
                 python_value_to_value((u.value, l.value, v.value), expr_ctx)
-                for u, x in value.value.to_dict().items()
-                for l, v in x.items()
+                for u, x in casted_value.value.to_dict().items()
+                for l, vs in x.items()
+                for v in vs
             },
             ctx=expr_ctx,
         )
@@ -823,12 +897,15 @@ class InterpretVisitor(LangVisitor):
         value = expr_ctx.sm.accept(self)
 
         # T-LabelsOf
-        if not isinstance(value, LangValueFA):
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
             raise type_error(value, "FA")
 
         return LangValueSet(
             value={
-                python_value_to_value(x.value, expr_ctx) for x in value.value.symbols
+                python_value_to_value(x.value, expr_ctx)
+                for x in casted_value.value.symbols
             },
             ctx=expr_ctx,
         )
@@ -837,6 +914,7 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__string(self, ctx: LangParser.Literal__stringContext):
         self._enter_ctx(ctx)
 
+        # T-String
         result = LangValueString(value=parse_token(ctx.value), ctx=ctx)
 
         self._exit_ctx()
@@ -847,6 +925,7 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__int(self, ctx: LangParser.Literal__intContext):
         self._enter_ctx(ctx)
 
+        # T-Int
         result = LangValueInt(value=parse_token(ctx.value), ctx=ctx)
 
         self._exit_ctx()
@@ -857,6 +936,7 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__real(self, ctx: LangParser.Literal__realContext):
         self._enter_ctx(ctx)
 
+        # T-Real
         result = LangValueReal(value=parse_token(ctx.value), ctx=ctx)
 
         self._exit_ctx()
@@ -867,6 +947,7 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__range(self, ctx: LangParser.Literal__rangeContext):
         self._enter_ctx(ctx)
 
+        # T-Range
         from_ = parse_token(ctx.from_)
         to = parse_token(ctx.to)
 
@@ -883,6 +964,7 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__set(self, ctx: LangParser.Literal__setContext):
         self._enter_ctx(ctx)
 
+        # T-Set
         result = LangValueSet(
             value={x.accept(self) for x in ctx.elems},
             ctx=ctx,
@@ -896,16 +978,71 @@ class InterpretVisitor(LangVisitor):
     def visitLiteral__lambda(self, ctx: LangParser.Literal__lambdaContext):
         self._enter_ctx(ctx)
 
-        raise NotImplementedError
+        # T-Lambda
+
+        match = ctx.param.accept(self)
+        current_scope = self.scopes[-1].copy()
+
+        def result(arg):
+            self._enter_ctx(ctx)
+
+            new_scope = current_scope.copy()
+            match(new_scope, arg)
+
+            self.scopes.append(new_scope)
+
+            result = ctx.body.accept(self)
+
+            self.scopes.pop()
+
+            self._exit_ctx()
+
+            return result
+
+        self._exit_ctx()
+
+        return LangValueLambda(value=result, ctx=ctx)
 
     # Visit a parse tree produced by LangParser#pattern__name.
     def visitPattern__name(self, ctx: LangParser.Pattern__nameContext):
         self._enter_ctx(ctx)
 
-        raise NotImplementedError
+        def result(scope, value):
+            self._enter_ctx(ctx)
+
+            # PT-Name
+
+            if ctx.name.text != "_":
+                scope[ctx.name.text] = value
+
+            self._exit_ctx()
+
+        self._exit_ctx()
+
+        return result
 
     # Visit a parse tree produced by LangParser#pattern__tuple.
     def visitPattern__tuple(self, ctx: LangParser.Pattern__tupleContext):
         self._enter_ctx(ctx)
 
-        raise NotImplementedError
+        def result(scope, value):
+            self._enter_ctx(ctx)
+
+            # PT-Tuple
+
+            if not isinstance(value, LangValueTuple):
+                raise type_error(value, "tuple")
+
+            if len(value.value) != len(ctx.elems):
+                raise ValueError(
+                    f"wrong number of elements in tuple {len(value.value)} vs expected {len(ctx.elems)}"
+                )
+
+            for i, elem in enumerate(ctx.elems):
+                elem.accept(self)(scope, value.value[i])
+
+            self._exit_ctx()
+
+        self._exit_ctx()
+
+        return result

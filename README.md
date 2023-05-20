@@ -298,7 +298,7 @@ $$\Gamma \vdash \texttt{REAL\\_NUMBER} : \texttt{real} \quad \text{(T — Real)}
 
 $$\Gamma \vdash \texttt{INT\\_NUMBER} \texttt{..} \texttt{INT\\_NUMBER} : \texttt{set} \quad \text{(T — Range)}$$
 
-$$\Gamma \vdash \texttt{load STRING} : \texttt{FA}$$
+$$\Gamma \vdash \texttt{load STRING} : \texttt{FA} \quad \text{(T — Load)}$$
 
 $$\frac{\texttt{NAME} : T \in \Gamma}{\Gamma \vdash \texttt{NAME} : T} \quad \text{(T — Name)}$$
 
@@ -406,9 +406,9 @@ $$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 < t
 
 $$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 > t_2 : \texttt{boolean}} \quad \text{(T — Greater)}$$
 
-$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 <= t_2 : \texttt{boolean}} \quad \text{(T — LessEqual)}$$
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 <= t_2 : \texttt{boolean}} \quad \text{(T — LessEquals)}$$
 
-$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 >= t_2 : \texttt{boolean}} \quad \text{(T — GreaterEqual)}$$
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 >= t_2 : \texttt{boolean}} \quad \text{(T — GreaterEquals)}$$
 
 $$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ in ~ t_2 : \texttt{boolean}} \quad \text{(T — In)}$$
 
