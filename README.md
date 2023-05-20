@@ -322,11 +322,11 @@ $$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{final states of} ~ 
 
 $$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{reachable states of} ~ t : \texttt{set}} \quad \text{(T — ReachableStatesOf)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesStatesOf)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesOf)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesStatesOf)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesOf)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsStatesOf)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsOf)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : T \rightarrow S}{\Gamma \vdash t_1 ~ \texttt{mapped with} ~ t_2 : \texttt{set}} \quad \text{(T — Map)}$$
 
@@ -361,8 +361,6 @@ $$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{real}
 $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRI)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{int}} \quad \text{(T — DivRRI)}$$
-
-$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRRR)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRRR)}$$
 
