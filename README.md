@@ -187,13 +187,15 @@ WS: S+;
         - унарный минус: `- <expr>`,
         - сложение: `<expr> + <expr>`,
         - вычитание: `<expr> - <expr>`,
-        - умножение: `<expr> * <expr>`
-        - и деление: `<expr> / <expr>`.
+        - умножение: `<expr> * <expr>`,
+        - деление: `<expr> / <expr>`,
+        - побитовое ИЛИ: `<expr> | <expr>` (только для целых чисел),
+        - побитовое И: `<expr> & <expr>` (только для целых чисел).
 
     - Для строк:
         - операторы сравнения: `<expr> < <expr>`, `<=`, `>`, `>=`, `==`, `!=`,
         - конкатенация: `<expr> + <expr>` (допустима конкатенация строки с числом),
-        - повторение: `<expr> * <expr>` (на первом месте всегда строка, на втором всегда число).
+        - повторение: `<expr> * <expr>` (один операнд строковый, другой целочисленный).
 
     - Для конечных автоматов:
         - конкатенация языков: `<expr> + <expr>`,
@@ -203,7 +205,6 @@ WS: S+;
 
     - Для множеств:
         - операторы сравнения: `<expr> == <expr>`, `!=`,
-        - поэлементные операции: унарный минус, сложение, вычитание, умножение и деление;
         - объединение множеств: `<expr> | <expr>`,
         - пересечение множеств: `<expr> & <expr>`,
         - проверка вхождения в множество: `<expr> in <expr>`, `<expr> not in <expr>`.
@@ -247,16 +248,17 @@ WS: S+;
 
 Значения времени выполнения бывают 8 типов:
 
-- Булево значение, `True` или `False`
-- Целое число, целое число неограниченного размера
-- Вещественное число, вещественное число, ограниченное представлением вещественных чисел
+- `boolean` — Булево значение, `True` или `False`
+- `int` — Целое число, целое число неограниченного размера
+- `real` — Вещественное число, вещественное число, ограниченное представлением вещественных чисел
     языка Python
-- Строка
-- Кортеж, пара или тройка. Не могут порождаться напрямую в языке, а используются только для
-    представления рёбер и множества достижимых вершин
-- Множество значений любых из перечисленных типов
-- Конечный автомат
-- Лямбда-функция
+- `string` — Строка
+- $`\texttt{(} T_1, ..., T_n \texttt{)}`$ — Кортеж, пара или тройка. Не могут порождаться
+    напрямую в языке, а используются только для представления рёбер и множества достижимых вершин
+- `set` — Множество значений любых из перечисленных типов, множества **гетерогенны**,
+    то есть одно множество может содержать значения разных типов
+- `FA` — Конечный автомат
+- $`T \rightarrow S`$ — Лямбда-функция
 
 #### Лямбда-функция
 
@@ -268,6 +270,155 @@ WS: S+;
 
 Шаблоны в качестве параметра лямбда-функции — это единственный допустимый в языке способ
 обращения к полям кортежей.
+
+
+### Система типов
+
+В языке используется **строгая динамическая** типизация, типы проверяются **во время выполнения**
+программы. Система типов недостаточно мощная, чтобы выразить все требования к корректным
+программам. Кроме того, некоторые решения о типизации принимаются в зависимости от значений
+операндов, а не только их типов.
+
+Предложения (statements) не типизируются, но каждое предложение `let` вносит в контекст $`\Gamma`$
+новую переменную, или заменяет существующую.
+
+Правила типизации шаблонов:
+
+$$\texttt{NAME} : T \Rightarrow \texttt{NAME} : T \quad \text{(PT — Name)}$$
+
+$$\frac{p_1 : T_1 \Rightarrow \Delta_1 \quad ... \quad p_n : T_n \Rightarrow \Delta_n}{\texttt{(} p_1, ..., p_n \texttt{)} : \texttt{(} T_1, ..., T_n \texttt{)} \Rightarrow \Delta_1, ..., \Delta_n} \quad \text{(PT — Tuple)}$$
+
+Правила типизации выражений:
+
+$$\Gamma \vdash \texttt{STRING} : \texttt{string} \quad \text{(T — String)}$$
+
+$$\Gamma \vdash \texttt{INT\\_NUMBER} : \texttt{int} \quad \text{(T — Int)}$$
+
+$$\Gamma \vdash \texttt{REAL\\_NUMBER} : \texttt{real} \quad \text{(T — Real)}$$
+
+$$\Gamma \vdash \texttt{INT\\_NUMBER} \texttt{..} \texttt{INT\\_NUMBER} : \texttt{set} \quad \text{(T — Range)}$$
+
+$$\Gamma \vdash \texttt{load STRING} : \texttt{FA}$$
+
+$$\frac{\texttt{NAME} : T \in \Gamma}{\Gamma \vdash \texttt{NAME} : T} \quad \text{(T — Name)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{string}}{\Gamma \vdash t : \texttt{FA}} \quad \text{(T — Smb)}$$
+
+$$\frac{\Gamma \vdash t_1 : T_1 \quad ... \quad \Gamma \vdash t_n : T_n}{\Gamma \vdash \texttt{\\{} t_1, ..., t_n \texttt{\\}} : \texttt{set}} \quad \text{(T — Set)}$$
+
+$$\frac{p : T \Rightarrow \Delta \quad \Gamma, \Delta \vdash t : S}{\Gamma \vdash \texttt{\\\\} p ~ \texttt{->} ~ t : T \rightarrow S} \quad \text{(T — Lambda)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyStartStates)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyFinalStates)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithStartStates)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithFinalStates)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{start states of} ~ t : \texttt{set}} \quad \text{(T — StartStatesOf)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{final states of} ~ t : \texttt{set}} \quad \text{(T — FinalStatesOf)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{reachable states of} ~ t : \texttt{set}} \quad \text{(T — ReachableStatesOf)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesStatesOf)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesStatesOf)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsStatesOf)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : T \rightarrow S}{\Gamma \vdash t_1 ~ \texttt{mapped with} ~ t_2 : \texttt{set}} \quad \text{(T — Map)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : T \rightarrow \texttt{boolean}}{\Gamma \vdash t_1 ~ \texttt{filtered with} ~ t_2 : \texttt{set}} \quad \text{(T — Filter)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash t* : \texttt{FA}} \quad \text{(T — KleeneStar)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{int}}{\Gamma \vdash -t : \texttt{int}} \quad \text{(T — UnaryMinusI)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{real}}{\Gamma \vdash -t : \texttt{real}} \quad \text{(T — UnaryMinusR)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{boolean}}{\Gamma \vdash \texttt{not} ~ t : \texttt{boolean}} \quad \text{(T — Not)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 * t_2 : \texttt{int}} \quad \text{(T — MulII)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 * t_2 : \texttt{real}} \quad \text{(T — MulIR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 * t_2 : \texttt{real}} \quad \text{(T — MulRI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 * t_2 : \texttt{real}} \quad \text{(T — MulRR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 * t_2 : \texttt{string}} \quad \text{(T — MulIS)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 * t_2 : \texttt{string}} \quad \text{(T — MulSI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 / t_2 : \texttt{int}} \quad \text{(T — DivIII)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivIIR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivIR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{int}} \quad \text{(T — DivRRI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRRR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 / t_2 : \texttt{real}} \quad \text{(T — DivRRR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 \\& t_2 : \texttt{int}} \quad \text{(T — BitwiseAnd)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 \\& t_2 : \texttt{set}} \quad \text{(T — SetIntersect)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 \\& t_2 : \texttt{FA}} \quad \text{(T — FAIntersect)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 + t_2 : \texttt{int}} \quad \text{(T — AddII)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 + t_2 : \texttt{real}} \quad \text{(T — AddIR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 + t_2 : \texttt{real}} \quad \text{(T — AddRI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 + t_2 : \texttt{real}} \quad \text{(T — AddRR)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS1)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : T}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS2)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{FA}} \quad \text{(T — ConcatFA)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 - t_2 : \texttt{int}} \quad \text{(T — SubII)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 - t_2 : \texttt{real}} \quad \text{(T — SubIR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 - t_2 : \texttt{real}} \quad \text{(T — SubRI)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 - t_2 : \texttt{real}} \quad \text{(T — SubRR)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 | t_2 : \texttt{int}} \quad \text{(T — BitwiseOr)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 | t_2 : \texttt{set}} \quad \text{(T — SetUnion)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 | t_2 : \texttt{FA}} \quad \text{(T — FAUnion)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 == t_2 : \texttt{boolean}} \quad \text{(T — Equals)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 ~ != ~ t_2 : \texttt{boolean}} \quad \text{(T — NotEquals)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 < t_2 : \texttt{boolean}} \quad \text{(T — Less)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 > t_2 : \texttt{boolean}} \quad \text{(T — Greater)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 <= t_2 : \texttt{boolean}} \quad \text{(T — LessEqual)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 >= t_2 : \texttt{boolean}} \quad \text{(T — GreaterEqual)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ in ~ t_2 : \texttt{boolean}} \quad \text{(T — In)}$$
+
+$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ not ~ in ~ t_2 : \texttt{boolean}} \quad \text{(T — NotIn)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{boolean} \quad \Gamma \vdash t_2 : \texttt{boolean}}{\Gamma \vdash t_1 ~ and ~ t_2 : \texttt{boolean}} \quad \text{(T — And)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{boolean} \quad \Gamma \vdash t_2 : \texttt{boolean}}{\Gamma \vdash t_1 ~ or ~ t_2 : \texttt{boolean}} \quad \text{(T — Or)}$$
 
 
 ## Примеры кода
