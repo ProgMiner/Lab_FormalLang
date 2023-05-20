@@ -32,9 +32,6 @@ expr
     | name=NAME                                                         # expr__name
     | value=literal                                                     # expr__literal
     | 'load' name=STRING                                                # expr__load
-    | sm=expr 'with' what=expr_set_clause what_value=expr               # expr__set
-    | what=expr_get_clause 'of' sm=expr                                 # expr__get
-    | value=expr op=('mapped'|'filtered') 'with' f=expr                 # expr__map_filter
     | value=expr op='*'                                                 # expr__unary_op
     | op=('-'|'not') value=expr                                         # expr__unary_op
     | left=expr op=('*'|'/'|'&') right=expr                             # expr__binary_op
@@ -42,6 +39,9 @@ expr
     | left=expr op=('=='|'!='|'<'|'>'|'<='|'>='|'in'|NOT_IN) right=expr # expr__binary_op
     | left=expr op='and' right=expr                                     # expr__binary_op
     | left=expr op='or' right=expr                                      # expr__binary_op
+    | sm=expr 'with' what=expr_set_clause what_value=expr               # expr__set
+    | what=expr_get_clause 'of' sm=expr                                 # expr__get
+    | value=expr op=('mapped'|'filtered') 'with' f=expr                 # expr__map_filter
     ;
 
 expr_set_clause

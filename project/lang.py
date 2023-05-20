@@ -168,6 +168,33 @@ class DotTreeVisitor(LangVisitor):
 
         return node
 
+    # Visit a parse tree produced by langParser#expr__unary_op.
+    def visitExpr__unary_op(self, ctx: LangParser.Expr__unary_opContext):
+        node = Node(self.next_node_number(), label=ctx.op.text)
+        self.graph.add_node(node)
+
+        child = ctx.value.accept(self)
+        self.graph.add_edge(Edge(node, child, label="value"))
+
+        return node
+
+    # Visit a parse tree produced by langParser#expr__binary_op.
+    def visitExpr__binary_op(self, ctx: LangParser.Expr__binary_opContext):
+        node = Node(
+            self.next_node_number(),
+            label="not in" if ctx.op.type == LangLexer.NOT_IN else ctx.op.text,
+        )
+
+        self.graph.add_node(node)
+
+        child = ctx.left.accept(self)
+        self.graph.add_edge(Edge(node, child, label="left"))
+
+        child = ctx.right.accept(self)
+        self.graph.add_edge(Edge(node, child, label="right"))
+
+        return node
+
     # Visit a parse tree produced by langParser#expr__set.
     def visitExpr__set(self, ctx: LangParser.Expr__setContext):
         node = Node(self.next_node_number(), label="with")
@@ -207,33 +234,6 @@ class DotTreeVisitor(LangVisitor):
 
         child = ctx.f.accept(self)
         self.graph.add_edge(Edge(node, child, label="f"))
-
-        return node
-
-    # Visit a parse tree produced by langParser#expr__unary_op.
-    def visitExpr__unary_op(self, ctx: LangParser.Expr__unary_opContext):
-        node = Node(self.next_node_number(), label=ctx.op.text)
-        self.graph.add_node(node)
-
-        child = ctx.value.accept(self)
-        self.graph.add_edge(Edge(node, child, label="value"))
-
-        return node
-
-    # Visit a parse tree produced by langParser#expr__binary_op.
-    def visitExpr__binary_op(self, ctx: LangParser.Expr__binary_opContext):
-        node = Node(
-            self.next_node_number(),
-            label="not in" if ctx.op.type == LangLexer.NOT_IN else ctx.op.text,
-        )
-
-        self.graph.add_node(node)
-
-        child = ctx.left.accept(self)
-        self.graph.add_edge(Edge(node, child, label="left"))
-
-        child = ctx.right.accept(self)
-        self.graph.add_edge(Edge(node, child, label="right"))
 
         return node
 
