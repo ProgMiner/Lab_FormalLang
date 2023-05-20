@@ -29,7 +29,10 @@ stmt
 
 expr
     : '(' expr_=expr ')'                                                # expr__parens
-    | sm=expr 'with' what=expr_set_clause                               # expr__set
+    | name=NAME                                                         # expr__name
+    | value=literal                                                     # expr__literal
+    | 'load' name=STRING                                                # expr__load
+    | sm=expr 'with' what=expr_set_clause what_value=expr               # expr__set
     | what=expr_get_clause 'of' sm=expr                                 # expr__get
     | value=expr op=('mapped'|'filtered') 'with' f=expr                 # expr__map_filter
     | value=expr op='*'                                                 # expr__unary_op
@@ -39,16 +42,13 @@ expr
     | left=expr op=('=='|'!='|'<'|'>'|'<='|'>='|'in'|NOT_IN) right=expr # expr__binary_op
     | left=expr op='and' right=expr                                     # expr__binary_op
     | left=expr op='or' right=expr                                      # expr__binary_op
-    | 'load' name=STRING                                                # expr__load
-    | name=NAME                                                         # expr__name
-    | value=literal                                                     # expr__literal
     ;
 
 expr_set_clause
-    : 'only' 'start' 'states' states=expr           # expr_set_clause__set_start_states
-    | 'only' 'final' 'states' states=expr           # expr_set_clause__set_final_states
-    | 'additional'? 'start' 'states' states=expr    # expr_set_clause__add_start_states
-    | 'additional'? 'final' 'states' states=expr    # expr_set_clause__add_final_states
+    : 'only' 'start' 'states'           # expr_set_clause__set_start_states
+    | 'only' 'final' 'states'           # expr_set_clause__set_final_states
+    | 'additional'? 'start' 'states'    # expr_set_clause__add_start_states
+    | 'additional'? 'final' 'states'    # expr_set_clause__add_final_states
     ;
 
 expr_get_clause

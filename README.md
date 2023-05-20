@@ -8,7 +8,7 @@ stmt = "let" NAME "=" expr | ["print" | ">>>"] expr.
 
 expr
     = "(" expr ")"
-    | expr "with" expr_set_clause
+    | expr "with" expr_set_clause expr
     | expr_get_clause "of" expr
     | expr "mapped" "with" expr
     | expr "filtered" "with" expr
@@ -37,10 +37,10 @@ expr
     .
 
 expr_set_clause
-    = "only" "start" "states" expr
-    | "only" "final" "states" expr
-    | ["additional"] "start" "states" expr
-    | ["additional"] "final" "states" expr
+    = "only" "start" "states"
+    | "only" "final" "states"
+    | ["additional"] "start" "states"
+    | ["additional"] "final" "states"
     .
 
 expr_get_clause

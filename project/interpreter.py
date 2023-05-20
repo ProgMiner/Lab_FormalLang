@@ -1,4 +1,4 @@
-from pyformlang.finite_automaton import DeterministicFiniteAutomaton
+from pyformlang.finite_automaton import EpsilonNFA
 from collections import namedtuple
 from typing import Iterable
 from antlr4 import *
@@ -120,11 +120,39 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
     return LangValueString(value=str(value), ctx=ctx)
 
 
+def value_to_python_value(value: LangValue) -> any:
+    if isinstance(value, LangValueBoolean):
+        return value.value
+
+    elif isinstance(value, LangValueInt):
+        return value.value
+
+    elif isinstance(value, LangValueReal):
+        return value.value
+
+    elif isinstance(value, LangValueString):
+        return value.value
+
+    elif isinstance(value, LangValueTuple):
+        return tuple([value_to_python_value(x) for x in value.value])
+
+    elif isinstance(value, LangValueSet):
+        return {value_to_python_value(x) for x in value.value}
+
+    elif isinstance(value, LangValueFA):
+        return value.value
+
+    elif isinstance(value, LangValueLambda):
+        raise ValueError("lambda conversion is not supported")
+
+    raise ValueError("unknown type of value")
+
+
 def cast_string_to_FA(value: LangValue, ctx: ParserRuleContext) -> LangValue:
     if not isinstance(value, LangValueString):
         return value
 
-    fa = DeterministicFiniteAutomaton()
+    fa = EpsilonNFA()
     fa.add_transition(0, value.value, 1)
     fa.add_start_state(0)
     fa.add_final_state(1)
@@ -203,12 +231,23 @@ class InterpretVisitor(LangVisitor):
     def visitExpr__set(self, ctx: LangParser.Expr__setContext):
         self._enter_ctx(ctx)
 
-        # delegate logic
-        value = ctx.what.accept(self)
+        sm = ctx.sm.accept(self)
+
+        casted_sm = cast_string_to_FA(sm, ctx)
+        if not isinstance(casted_sm, LangValueFA):
+            raise type_error(sm, "FA")
+
+        what_value = ctx.what_value.accept(self)
+
+        result = casted_sm.value.copy()
+
+        ctx.what.accept(self)(result, what_value)
+
+        result = LangValueFA(value=result, ctx=ctx)
 
         self._exit_ctx()
 
-        return value
+        return result
 
     # Visit a parse tree produced by LangParser#expr__get.
     def visitExpr__get(self, ctx: LangParser.Expr__getContext):
@@ -604,43 +643,72 @@ class InterpretVisitor(LangVisitor):
         self,
         ctx: LangParser.Expr_set_clause__set_start_statesContext,
     ):
-        self._enter_ctx(ctx)
+        def result(sm, states):
+            if not isinstance(states, LangValueSet):
+                raise type_error(states, "set")
 
-        raise NotImplementedError
+            for s in set(sm.start_states):
+                sm.remove_start_state(s)
+
+            for s in value_to_python_value(states):
+                sm.add_start_state(s)
+
+        return result
 
     # Visit a parse tree produced by LangParser#expr_set_clause__set_final_states.
     def visitExpr_set_clause__set_final_states(
         self,
         ctx: LangParser.Expr_set_clause__set_final_statesContext,
     ):
-        self._enter_ctx(ctx)
+        def result(sm, states):
+            if not isinstance(states, LangValueSet):
+                raise type_error(states, "set")
 
-        raise NotImplementedError
+            for s in set(sm.final_states):
+                sm.remove_final_state(s)
+
+            for s in value_to_python_value(states):
+                sm.add_final_state(s)
+
+        return result
 
     # Visit a parse tree produced by LangParser#expr_set_clause__add_start_states.
     def visitExpr_set_clause__add_start_states(
         self,
         ctx: LangParser.Expr_set_clause__add_start_statesContext,
     ):
-        self._enter_ctx(ctx)
+        def result(sm, states):
+            if not isinstance(states, LangValueSet):
+                raise type_error(states, "set")
 
-        raise NotImplementedError
+            for s in value_to_python_value(states):
+                sm.add_start_state(s)
+
+        return result
 
     # Visit a parse tree produced by LangParser#expr_set_clause__add_final_states.
     def visitExpr_set_clause__add_final_states(
         self,
         ctx: LangParser.Expr_set_clause__add_final_statesContext,
     ):
-        self._enter_ctx(ctx)
+        def result(sm, states):
+            if not isinstance(states, LangValueSet):
+                raise type_error(states, "set")
 
-        raise NotImplementedError
+            for s in value_to_python_value(states):
+                sm.add_final_state(s)
+
+        return result
 
     # Visit a parse tree produced by LangParser#expr_get_clause__start_states.
     def visitExpr_get_clause__start_states(
         self,
         ctx: LangParser.Expr_get_clause__start_statesContext,
     ):
-        expr_ctx = self.ctx
+        expr_ctx = ctx.parentCtx
+
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
 
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
@@ -649,9 +717,7 @@ class InterpretVisitor(LangVisitor):
         if not isinstance(value, LangValueFA):
             raise type_error(value, "FA")
 
-        self._enter_ctx(ctx)
-
-        result = LangValueSet(
+        return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx)
                 for x in value.value.start_states
@@ -659,16 +725,15 @@ class InterpretVisitor(LangVisitor):
             ctx=expr_ctx,
         )
 
-        self._exit_ctx()
-
-        return result
-
     # Visit a parse tree produced by LangParser#expr_get_clause__final_states.
     def visitExpr_get_clause__final_states(
         self,
         ctx: LangParser.Expr_get_clause__final_statesContext,
     ):
-        expr_ctx = self.ctx
+        expr_ctx = ctx.parentCtx
+
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
 
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
@@ -677,19 +742,13 @@ class InterpretVisitor(LangVisitor):
         if not isinstance(value, LangValueFA):
             raise type_error(value, "FA")
 
-        self._enter_ctx(ctx)
-
-        result = LangValueSet(
+        return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx)
                 for x in value.value.final_states
             },
             ctx=expr_ctx,
         )
-
-        self._exit_ctx()
-
-        return result
 
     # Visit a parse tree produced by LangParser#expr_get_clause__reachable_states.
     def visitExpr_get_clause__reachable_states(
@@ -705,7 +764,10 @@ class InterpretVisitor(LangVisitor):
         self,
         ctx: LangParser.Expr_get_clause__nodesContext,
     ):
-        expr_ctx = self.ctx
+        expr_ctx = ctx.parentCtx
+
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
 
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
@@ -714,25 +776,22 @@ class InterpretVisitor(LangVisitor):
         if not isinstance(value, LangValueFA):
             raise type_error(value, "FA")
 
-        self._enter_ctx(ctx)
-
-        result = LangValueSet(
+        return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx) for x in value.value.states
             },
             ctx=expr_ctx,
         )
 
-        self._exit_ctx()
-
-        return result
-
     # Visit a parse tree produced by LangParser#expr_get_clause__edges.
     def visitExpr_get_clause__edges(
         self,
         ctx: LangParser.Expr_get_clause__edgesContext,
     ):
-        expr_ctx = self.ctx
+        expr_ctx = ctx.parentCtx
+
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
 
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
@@ -741,9 +800,7 @@ class InterpretVisitor(LangVisitor):
         if not isinstance(value, LangValueFA):
             raise type_error(value, "FA")
 
-        self._enter_ctx(ctx)
-
-        result = LangValueSet(
+        return LangValueSet(
             value={
                 python_value_to_value((u.value, l.value, v.value), expr_ctx)
                 for u, x in value.value.to_dict().items()
@@ -752,16 +809,15 @@ class InterpretVisitor(LangVisitor):
             ctx=expr_ctx,
         )
 
-        self._exit_ctx()
-
-        return result
-
     # Visit a parse tree produced by LangParser#expr_get_clause__labels.
     def visitExpr_get_clause__labels(
         self,
         ctx: LangParser.Expr_get_clause__labelsContext,
     ):
-        expr_ctx = self.ctx
+        expr_ctx = ctx.parentCtx
+
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
 
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
@@ -770,18 +826,12 @@ class InterpretVisitor(LangVisitor):
         if not isinstance(value, LangValueFA):
             raise type_error(value, "FA")
 
-        self._enter_ctx(ctx)
-
-        result = LangValueSet(
+        return LangValueSet(
             value={
                 python_value_to_value(x.value, expr_ctx) for x in value.value.symbols
             },
             ctx=expr_ctx,
         )
-
-        self._exit_ctx()
-
-        return result
 
     # Visit a parse tree produced by LangParser#literal__string.
     def visitLiteral__string(self, ctx: LangParser.Literal__stringContext):
