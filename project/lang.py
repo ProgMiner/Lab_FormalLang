@@ -134,6 +134,40 @@ class DotTreeVisitor(LangVisitor):
 
         return node
 
+    # Visit a parse tree produced by langParser#expr__name.
+    def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
+        node = Node(self.next_node_number(), label="name")
+        self.graph.add_node(node)
+
+        child = Node(self.next_node_number(), label=ctx.name.text)
+        self.graph.add_node(child)
+
+        self.graph.add_edge(Edge(node, child, label="name"))
+
+        return node
+
+    # Visit a parse tree produced by langParser#expr__literal.
+    def visitExpr__literal(self, ctx: LangParser.Expr__literalContext):
+        node = Node(self.next_node_number(), label="literal")
+        self.graph.add_node(node)
+
+        child = ctx.value.accept(self)
+        self.graph.add_edge(Edge(node, child, label="value"))
+
+        return node
+
+    # Visit a parse tree produced by langParser#expr__load.
+    def visitExpr__load(self, ctx: LangParser.Expr__loadContext):
+        node = Node(self.next_node_number(), label="load")
+        self.graph.add_node(node)
+
+        child = Node(self.next_node_number(), label=repr(ctx.name.text))
+        self.graph.add_node(child)
+
+        self.graph.add_edge(Edge(node, child, label="name"))
+
+        return node
+
     # Visit a parse tree produced by langParser#expr__set.
     def visitExpr__set(self, ctx: LangParser.Expr__setContext):
         node = Node(self.next_node_number(), label="with")
@@ -144,6 +178,9 @@ class DotTreeVisitor(LangVisitor):
 
         child = ctx.what.accept(self)
         self.graph.add_edge(Edge(node, child, label="what"))
+
+        child = ctx.what_value.accept(self)
+        self.graph.add_edge(Edge(node, child, label="what_value"))
 
         return node
 
@@ -200,40 +237,6 @@ class DotTreeVisitor(LangVisitor):
 
         return node
 
-    # Visit a parse tree produced by langParser#expr__load.
-    def visitExpr__load(self, ctx: LangParser.Expr__loadContext):
-        node = Node(self.next_node_number(), label="load")
-        self.graph.add_node(node)
-
-        child = Node(self.next_node_number(), label=repr(ctx.name.text))
-        self.graph.add_node(child)
-
-        self.graph.add_edge(Edge(node, child, label="name"))
-
-        return node
-
-    # Visit a parse tree produced by langParser#expr__name.
-    def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
-        node = Node(self.next_node_number(), label="name")
-        self.graph.add_node(node)
-
-        child = Node(self.next_node_number(), label=ctx.name.text)
-        self.graph.add_node(child)
-
-        self.graph.add_edge(Edge(node, child, label="name"))
-
-        return node
-
-    # Visit a parse tree produced by langParser#expr__literal.
-    def visitExpr__literal(self, ctx: LangParser.Expr__literalContext):
-        node = Node(self.next_node_number(), label="literal")
-        self.graph.add_node(node)
-
-        child = ctx.value.accept(self)
-        self.graph.add_edge(Edge(node, child, label="value"))
-
-        return node
-
     # Visit a parse tree produced by langParser#expr_set_clause__set_start_states.
     def visitExpr_set_clause__set_start_states(
         self,
@@ -241,9 +244,6 @@ class DotTreeVisitor(LangVisitor):
     ):
         node = Node(self.next_node_number(), label="only start states")
         self.graph.add_node(node)
-
-        child = ctx.states.accept(self)
-        self.graph.add_edge(Edge(node, child))
 
         return node
 
@@ -255,9 +255,6 @@ class DotTreeVisitor(LangVisitor):
         node = Node(self.next_node_number(), label="only final states")
         self.graph.add_node(node)
 
-        child = ctx.states.accept(self)
-        self.graph.add_edge(Edge(node, child))
-
         return node
 
     # Visit a parse tree produced by langParser#expr_set_clause__add_start_states.
@@ -268,9 +265,6 @@ class DotTreeVisitor(LangVisitor):
         node = Node(self.next_node_number(), label="additional start states")
         self.graph.add_node(node)
 
-        child = ctx.states.accept(self)
-        self.graph.add_edge(Edge(node, child))
-
         return node
 
     # Visit a parse tree produced by langParser#expr_set_clause__add_final_states.
@@ -280,9 +274,6 @@ class DotTreeVisitor(LangVisitor):
     ):
         node = Node(self.next_node_number(), label="additional final states")
         self.graph.add_node(node)
-
-        child = ctx.states.accept(self)
-        self.graph.add_edge(Edge(node, child))
 
         return node
 
