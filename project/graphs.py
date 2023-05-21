@@ -15,6 +15,26 @@ def load_by_name(name: str) -> MultiDiGraph:
     return cfpq.graph_from_csv(cfpq.download(name))
 
 
+def load(name: str) -> MultiDiGraph:
+    """
+    Loads graph by name in order:
+    1. load_from_file
+    2. load_by_name
+    """
+
+    try:
+        return load_from_file(name)
+    except Exception as e:
+        e1 = e
+
+    try:
+        return load_by_name(name)
+    except Exception as e:
+        e2 = e
+
+    raise ExceptionGroup("cannot load graph", [e1, e2])
+
+
 def summary(graph: MultiDiGraph) -> GraphSummary:
     """
     Returns number of nodes and edges, and set of labels.
