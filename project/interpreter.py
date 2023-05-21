@@ -208,7 +208,7 @@ class InterpretVisitor(LangVisitor):
     def visitStmt__let(self, ctx: LangParser.Stmt__letContext):
         self._enter_ctx(ctx)
 
-        self.scopes[0][ctx.name] = ctx.value.accept(self)
+        self.scopes[0][ctx.name.text] = ctx.value.accept(self)
 
         self._exit_ctx()
 
@@ -440,8 +440,17 @@ class InterpretVisitor(LangVisitor):
                 raise type_error(left, ["int", "set", "FA"])
 
         elif ctx.op.text == "+":
-            if isinstance(left, LangValueString) or isinstance(right, LangValueString):
-                # T-Concat1, T-Concat2
+            casted_left = cast_string_to_FA(left, ctx)
+            casted_right = cast_string_to_FA(right, ctx)
+
+            if (
+                isinstance(left, LangValueString)
+                and not isinstance(casted_right, LangValueFA)
+            ) or (
+                not isinstance(casted_left, LangValueFA)
+                and isinstance(right, LangValueString)
+            ):
+                # T-ConcatS1, T-ConcatS2
 
                 result = LangValueString(value=f"{left.value}{right.value}", ctx=ctx)
 
@@ -473,14 +482,16 @@ class InterpretVisitor(LangVisitor):
                 else:
                     raise type_error(right, ["string", "int", "real"])
 
-            elif isinstance(casted_left := cast_string_to_FA(left, ctx), LangValueFA):
+            elif isinstance(casted_left, LangValueFA):
                 # T-ConcatFA
 
-                casted_right = cast_string_to_FA(right, ctx)
                 if not isinstance(casted_right, LangValueFA):
                     raise type_error(right, ["string", "FA"])
 
-                raise NotImplementedError
+                result = LangValueFA(
+                    value=fa.concat(casted_left.value, casted_right.value),
+                    ctx=ctx,
+                )
 
             else:
                 raise type_error(left, ["string", "int", "real", "FA"])
