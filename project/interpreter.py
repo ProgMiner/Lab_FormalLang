@@ -1,4 +1,5 @@
 from pyformlang.finite_automaton import EpsilonNFA
+from project import graphs as graphs
 from collections import namedtuple
 from project import fa as fa
 from typing import Iterable
@@ -154,13 +155,7 @@ def cast_string_to_FA(value: LangValue, ctx: ParserRuleContext) -> LangValue:
         return value
 
     # T-Smb
-
-    fa = EpsilonNFA()
-    fa.add_transition(0, value.value, 1)
-    fa.add_start_state(0)
-    fa.add_final_state(1)
-
-    return LangValueFA(value=fa, ctx=ctx)
+    return LangValueFA(value=fa.single_transition(value.value), ctx=ctx)
 
 
 class InterpretError(Exception):
@@ -179,6 +174,7 @@ class InterpretVisitor(LangVisitor):
     def __init__(self, out=None):
         self.ctx_stack = list()
         self.scopes = [dict()]
+        self.load_cache = dict()
 
         self.out = out
 
@@ -188,6 +184,15 @@ class InterpretVisitor(LangVisitor):
             return None
 
         return self.ctx_stack[-1]
+
+    def _load_graph(self, name: str) -> EpsilonNFA:
+        if name in self.load_cache:
+            return self.load_cache[name]
+
+        result = fa.graph_to_nfa(graphs.load(name))
+        self.load_cache[name] = result
+
+        return result
 
     def _enter_ctx(self, ctx: ParserRuleContext):
         self.ctx_stack.append(ctx)
@@ -260,9 +265,13 @@ class InterpretVisitor(LangVisitor):
     def visitExpr__load(self, ctx: LangParser.Expr__loadContext):
         self._enter_ctx(ctx)
 
-        raise NotImplementedError
-
         # T-Load
+
+        result = LangValueFA(value=self._load_graph(parse_token(ctx.name)), ctx=ctx)
+
+        self._exit_ctx()
+
+        return result
 
     # Visit a parse tree produced by LangParser#expr__unary_op.
     def visitExpr__unary_op(self, ctx: LangParser.Expr__unary_opContext):

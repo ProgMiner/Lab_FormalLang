@@ -329,7 +329,24 @@ def query_graph_bfs(
     return result
 
 
+def single_transition(label: str) -> EpsilonNFA:
+    """
+    Build NFA with two states and one transition by label.
+    """
+
+    fa = EpsilonNFA()
+
+    fa.add_transition(0, label, 1)
+    fa.add_start_state(0)
+    fa.add_final_state(1)
+    return fa
+
+
 def concat(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
+    """
+    Build NFA of concatenation of specified NFAs.
+    """
+
     a_states = {st: 3 + i for i, st in enumerate(a.states)}
     b_states = {st: 3 + len(a.states) + i for i, st in enumerate(b.states)}
     s, st, t = 0, 1, 2
@@ -369,6 +386,10 @@ def concat(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
 
 
 def union(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
+    """
+    Build NFA of union of specified NFAs.
+    """
+
     a_states = {st: 2 + i for i, st in enumerate(a.states)}
     b_states = {st: 2 + len(a.states) + i for i, st in enumerate(b.states)}
     s, t = 0, 1
@@ -408,6 +429,10 @@ def union(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
 
 
 def kleene_star(fa: EpsilonNFA) -> EpsilonNFA:
+    """
+    Build NFA of Kleene closure of specified NFAs.
+    """
+
     fa_states = {st: 2 + i for i, st in enumerate(fa.states)}
     s, t = 0, 1
 
