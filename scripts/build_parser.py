@@ -12,6 +12,8 @@ def main():
     subprocess.check_call(
         [
             "antlr4",
+            "-v",
+            "4.13.0",
             "-Dlanguage=Python3",
             "-no-listener",
             "-visitor",
