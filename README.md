@@ -378,9 +378,9 @@ $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}
 
 $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 + t_2 : \texttt{real}} \quad \text{(T — AddRR)}$$
 
-$$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS1)}$$
+$$\frac{\Gamma \vdash t_1 : T \quad T \neq \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS1)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : T}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS2)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : T \quad T \neq \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS2)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{FA}} \quad \text{(T — ConcatFA)}$$
 
