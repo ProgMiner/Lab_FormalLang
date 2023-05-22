@@ -16,10 +16,7 @@ import pytest
 
 @given(from_regex("c*ab(a|b|c)*", fullmatch=True))
 def test_regex_to_dfa_sanity(test):
-    dfa = fa.regex_to_dfa("c* a b (a|b|c)*")
-
-    print(f"Test: {test}")
-    assert dfa.accepts(test)
+    assert fa.regex_to_dfa("c* a b (a|b|c)*").accepts(test)
 
 
 def test_regex_to_dfa_minimal():
@@ -721,3 +718,56 @@ def test_query_graph_bfs_some():
         127: {21},
         128: set(),
     }
+
+
+@given(from_regex("[a-z]+", fullmatch=True))
+def test_single_transition(test):
+    result = fa.single_transition(test)
+
+    assert result.accepts([test])
+
+    assert len(result.states) == 2
+    assert set(result.symbols) == {test}
+    assert len(list(fa.iterate_transitions(result))) == 1
+
+
+def test_concat():
+    a = fa.single_transition("a")
+    b = fa.single_transition("b")
+    c = fa.single_transition("c")
+
+    assert fa.concat(a, b).accepts("ab")
+    assert fa.concat(b, c).accepts("bc")
+    assert fa.concat(a, c).accepts("ac")
+
+    assert fa.concat(a, fa.concat(b, c)).accepts("abc")
+    assert fa.concat(a, fa.concat(b, c)) == fa.concat(fa.concat(a, b), c)
+
+
+def test_union():
+    a = fa.single_transition("a")
+    b = fa.single_transition("b")
+    c = fa.single_transition("c")
+
+    assert fa.union(a, b).accepts("a")
+    assert fa.union(a, b).accepts("b")
+    assert fa.union(b, c).accepts("b")
+    assert fa.union(b, c).accepts("c")
+    assert fa.union(a, c).accepts("a")
+    assert fa.union(a, c).accepts("c")
+
+    assert fa.union(a, fa.union(b, c)).accepts("a")
+    assert fa.union(a, fa.union(b, c)).accepts("b")
+    assert fa.union(a, fa.union(b, c)).accepts("c")
+
+    assert fa.union(a, fa.union(b, c)) == fa.union(fa.union(a, b), c)
+
+
+def test_kleene_star():
+    a = fa.single_transition("a")
+
+    a_star = fa.kleene_star(a)
+
+    assert a_star.accepts("")
+    assert a_star.accepts("a")
+    assert a_star.accepts("aaaaa")
