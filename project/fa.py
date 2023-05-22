@@ -2,6 +2,8 @@ from pyformlang.finite_automaton import (
     FiniteAutomaton,
     DeterministicFiniteAutomaton,
     EpsilonNFA,
+    Symbol,
+    State,
 )
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
@@ -48,7 +50,7 @@ def graph_to_nfa(
     return nfa
 
 
-def states_mapping(fa: EpsilonNFA) -> dict[any, int]:
+def states_mapping(fa: EpsilonNFA) -> dict[State, int]:
     """
     Returns dict with FA states names to indices.
     """
@@ -56,7 +58,11 @@ def states_mapping(fa: EpsilonNFA) -> dict[any, int]:
     return {s: i for i, s in enumerate(fa.states)}
 
 
-def iterate_transitions(fa: FiniteAutomaton):
+def iterate_transitions(fa: FiniteAutomaton) -> Iterable[tuple[State, Symbol, State]]:
+    """
+    Returns iterable over transitions of FA.
+    """
+
     for u, t in fa.to_dict().items():
         for s, vs in t.items():
             try:
@@ -91,7 +97,7 @@ def to_boolean_matrix(
 
 def to_boolean_matrices(
     fa: EpsilonNFA,
-    mapping: dict[any, int],
+    mapping: dict[Symbol, int],
 ) -> dict[any, sp.coo_matrix]:
     """
     Builds set boolean adjacency matrices of FA for every label.
