@@ -18,6 +18,14 @@ let q = ("equivalentClass" | "first") + "type"* + "type";
     mapped with \((a, _), (b, _)) -> a + " -> " + b
     ;
 
+// определение РКА и связывание с именем q
+let q = ("type" | rec q) | "";
+
+// контекстно-свободный запрос к графу g
+>>> reachable states of (g & q)
+    mapped with \((a, _), (b, _)) -> a + " -> " + b
+    ;
+
 // порождение множества из диапазона с помощью mapped with и filtered with
 >>> 0..10
     mapped with (\x -> x * 2)
