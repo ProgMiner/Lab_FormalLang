@@ -40,4 +40,4 @@ jobs:
 
       - name: Check DOT working
         run: |
-          ./scripts/run_parser.py < ./examples/from_readme.fl
+          ./scripts/draw_parse_tree.py < ./examples/from_readme.fl
