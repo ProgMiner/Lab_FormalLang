@@ -13,13 +13,25 @@ let g = g with only final states { 21 };
 // определение КА и связывание с именем q
 let q = ("equivalentClass" | "first") + "type"* + "type";
 
+>>> start states of q;
+>>> final states of q;
+>>> nodes of q;
+>>> edges of q;
+>>> labels of q;
+
 // вывод пар достижимых вершин в пересечении g и q
 >>> reachable states of g & q
     mapped with \((a, _), (b, _)) -> a + " -> " + b
     ;
 
 // определение РКА и связывание с именем q
-let q = ("type" | rec q) | "";
+let q = ("type" | rec q) | "epsilon";
+
+>>> start states of q;
+>>> final states of q;
+>>> nodes of q;
+>>> edges of q;
+>>> labels of q;
 
 // контекстно-свободный запрос к графу g
 >>> reachable states of (g & q)
