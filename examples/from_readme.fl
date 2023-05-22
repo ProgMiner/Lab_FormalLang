@@ -14,7 +14,9 @@ let g = g with only final states { 21 };
 let q = ("equivalentClass" | "first") + "type"* + "type";
 
 // вывод пар достижимых вершин в пересечении g и q
->>> reachable states of (g & q);
+>>> reachable states of g & q
+    mapped with \((a, _), (b, _)) -> a + " -> " + b
+    ;
 
 // порождение множества из диапазона с помощью mapped with и filtered with
 >>> 0..10

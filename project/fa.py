@@ -1,4 +1,8 @@
-from pyformlang.finite_automaton import DeterministicFiniteAutomaton, EpsilonNFA
+from pyformlang.finite_automaton import (
+    FiniteAutomaton,
+    DeterministicFiniteAutomaton,
+    EpsilonNFA,
+)
 from networkx.classes.multidigraph import MultiDiGraph
 from pyformlang.regular_expression import Regex
 from project.graphs import summary
@@ -52,6 +56,16 @@ def states_mapping(fa: EpsilonNFA) -> dict[any, int]:
     return {s: i for i, s in enumerate(fa.states)}
 
 
+def iterate_transitions(fa: FiniteAutomaton):
+    for u, t in fa.to_dict().items():
+        for s, vs in t.items():
+            try:
+                for v in vs:
+                    yield (u, s, v)
+            except TypeError:
+                yield (u, s, vs)
+
+
 def to_boolean_matrix(
     fa: EpsilonNFA,
     label: any,
@@ -68,14 +82,9 @@ def to_boolean_matrix(
 
     result = sp.dok_matrix((n_states, n_states), dtype=np.bool_)
 
-    for u, t in fa.to_dict().items():
-        for s, vs in t.items():
-            if s == label:
-                try:
-                    for v in vs:
-                        result[mapping[u], mapping[v]] = 1
-                except TypeError:
-                    result[mapping[u], mapping[vs]] = 1
+    for u, s, v in iterate_transitions(fa):
+        if s == label:
+            result[mapping[u], mapping[v]] = 1
 
     return sp.coo_matrix(result)
 
@@ -123,13 +132,8 @@ def adjacency_matrix(fa: EpsilonNFA, mapping: dict[any, int]) -> sp.coo_matrix:
 
     result = sp.dok_matrix((n_states, n_states), dtype=np.bool_)
 
-    for u, t in fa.to_dict().items():
-        for s, vs in t.items():
-            try:
-                for v in vs:
-                    result[mapping[u], mapping[v]] = 1
-            except TypeError:
-                result[mapping[u], mapping[vs]] = 1
+    for u, _, v in iterate_transitions(fa):
+        result[mapping[u], mapping[v]] = 1
 
     return sp.coo_matrix(result)
 
@@ -153,7 +157,7 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     result_states = [None for i in range(len(a_mapping) * len(b_mapping))]
     for a_st, i in a_mapping.items():
         for b_st, j in b_mapping.items():
-            result_states[i * len(b_mapping) + j] = (a_st, b_st)
+            result_states[i * len(b_mapping) + j] = (a_st.value, b_st.value)
 
     result = from_boolean_matrices(result_boolean, result_states)
 
@@ -172,20 +176,11 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     return result
 
 
-def query_graph_kron(
-    regex: str,
-    graph: MultiDiGraph,
-    start_states: Iterable[any] = None,
-    final_states: Iterable[any] = None,
-) -> Iterable[tuple[any, any]]:
+def reachable_states(c: EpsilonNFA) -> set[tuple[any, any]]:
     """
-    Finds all pairs of start and final states such that final state reachable from start state
-    with constraints specified by the regex.
+    Returns set of pairs of states. Each pair is one of start states and one of final states and
+    means that second state reachable from first state.
     """
-
-    a = regex_to_dfa(regex)
-    b = graph_to_nfa(graph, start_states, final_states)
-    c = intersect(a, b)
 
     c_mapping = states_mapping(c)
     c_matrix = adjacency_matrix(c, c_mapping)
@@ -201,9 +196,27 @@ def query_graph_kron(
     result = set()
     for i, j, v in zip(c_closure.row, c_closure.col, c_closure.data):
         if v and i in start_states and j in final_states:
-            result.add((start_states[i][1], final_states[j][1]))
+            result.add((start_states[i], final_states[j]))
 
     return result
+
+
+def query_graph_kron(
+    regex: str,
+    graph: MultiDiGraph,
+    start_states: Iterable[any] = None,
+    final_states: Iterable[any] = None,
+) -> set[tuple[any, any]]:
+    """
+    Finds all pairs of start and final states such that final state reachable from start state
+    with constraints specified by the regex.
+    """
+
+    a = regex_to_dfa(regex)
+    b = graph_to_nfa(graph, start_states, final_states)
+    c = intersect(a, b)
+
+    return {(si[1], sj[1]) for si, sj in reachable_states(c)}
 
 
 def regexp_reachability(
@@ -218,7 +231,7 @@ def regexp_reachability(
     If `for_each` specified, return value is dict of start state to nodes, otherwise is just
     set of final nodes.
 
-    Graph is represented as FA only for convenience, them start and final states are ignored.
+    Graph is represented as FA only for convenience, they start and final states are ignored.
     """
 
     regexp = regexp.minimize()
@@ -359,21 +372,11 @@ def concat(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     )
 
     result.add_transitions(
-        [
-            (a_states[u], l, a_states[v])
-            for u, x in a.to_dict().items()
-            for l, vs in x.items()
-            for v in vs
-        ]
+        [(a_states[u], l, a_states[v]) for u, l, v in iterate_transitions(a)]
     )
 
     result.add_transitions(
-        [
-            (b_states[u], l, b_states[v])
-            for u, x in b.to_dict().items()
-            for l, vs in x.items()
-            for v in vs
-        ]
+        [(b_states[u], l, b_states[v]) for u, l, v in iterate_transitions(b)]
     )
 
     result.add_transitions([(s, "epsilon", a_states[x]) for x in a.start_states])
@@ -402,21 +405,11 @@ def union(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     )
 
     result.add_transitions(
-        [
-            (a_states[u], l, a_states[v])
-            for u, x in a.to_dict().items()
-            for l, vs in x.items()
-            for v in vs
-        ]
+        [(a_states[u], l, a_states[v]) for u, l, v in iterate_transitions(a)]
     )
 
     result.add_transitions(
-        [
-            (b_states[u], l, b_states[v])
-            for u, x in b.to_dict().items()
-            for l, vs in x.items()
-            for v in vs
-        ]
+        [(b_states[u], l, b_states[v]) for u, l, v in iterate_transitions(b)]
     )
 
     result.add_transitions([(s, "epsilon", a_states[x]) for x in a.start_states])
@@ -444,12 +437,7 @@ def kleene_star(fa: EpsilonNFA) -> EpsilonNFA:
     )
 
     result.add_transitions(
-        [
-            (fa_states[u], l, fa_states[v])
-            for u, x in fa.to_dict().items()
-            for l, vs in x.items()
-            for v in vs
-        ]
+        [(fa_states[u], l, fa_states[v]) for u, l, v in iterate_transitions(fa)]
     )
 
     result.add_transitions([(s, "epsilon", fa_states[x]) for x in fa.start_states])

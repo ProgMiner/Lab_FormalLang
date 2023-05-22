@@ -15,6 +15,14 @@ def load_by_name(name: str) -> MultiDiGraph:
     return cfpq.graph_from_csv(cfpq.download(name))
 
 
+def load_from_file(path: str) -> MultiDiGraph:
+    """
+    Loads graph from file by path.
+    """
+
+    raise NotImplementedError
+
+
 def load(name: str) -> MultiDiGraph:
     """
     Loads graph by name in order:
