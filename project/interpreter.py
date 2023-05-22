@@ -1,5 +1,6 @@
 from pyformlang.finite_automaton import EpsilonNFA
 from project import graphs as graphs
+from pyformlang.cfg import Variable
 from collections import namedtuple
 from project import fa as fa
 from typing import Iterable
@@ -17,6 +18,7 @@ LangValueString = namedtuple("LangValueString", ["value", "ctx"])
 LangValueTuple = namedtuple("LangValueTuple", ["value", "ctx"])
 LangValueSet = namedtuple("LangValueSet", ["value", "ctx"])
 LangValueFA = namedtuple("LangValueFA", ["value", "ctx"])
+LangValueRSM = namedtuple("LangValueRSM", ["value", "ctx"])
 LangValueLambda = namedtuple("LangValueLambda", ["value", "ctx"])
 
 LangValueBoolean.typename = "boolean"
@@ -26,6 +28,7 @@ LangValueString.typename = "string"
 LangValueTuple.typename = "tuple"
 LangValueSet.typename = "set"
 LangValueFA.typename = "FA"
+LangValueRSM.typename = "RSM"
 LangValueLambda.typename = "lambda"
 
 LangValue = (
@@ -36,6 +39,7 @@ LangValue = (
     | LangValueTuple
     | LangValueSet
     | LangValueFA
+    | LangValueRSM
     | LangValueLambda
 )
 
@@ -77,7 +81,10 @@ def value_to_string(value: LangValue):
         return "{" + f'{", ".join([value_to_string(x) for x in value.value])}' + "}"
 
     if isinstance(value, LangValueFA):
-        return f"FA created on {ctx_location(value.ctx)}"
+        return f"FA {value.value.to_regex()}"
+
+    if isinstance(value, LangValueRSM):
+        return f"RSM {value.value.to_regex()}"
 
     if isinstance(value, LangValueLambda):
         return f"lambda created on {ctx_location(value.ctx)}"
@@ -173,6 +180,9 @@ def value_to_python_value(value: LangValue) -> any:
     elif isinstance(value, LangValueFA):
         return value.value
 
+    elif isinstance(value, LangValueRSM):
+        return value.value
+
     elif isinstance(value, LangValueLambda):
         raise ValueError("lambda conversion is not supported")
 
@@ -214,7 +224,8 @@ class InterpretVisitor(LangVisitor):
     @property
     def ctx(self) -> ParserRuleContext:
         """
-        Current or last interpreted context tree node. Usable to display errors.
+        Current or last interpreted context tree node.
+        Usable to display errors.
         """
 
         if len(self.ctx_stack) == 0:
@@ -276,13 +287,22 @@ class InterpretVisitor(LangVisitor):
     def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
         self._enter_ctx(ctx)
 
-        # T-Name
+        if ctx.rec is not None:
+            # T-RecName
 
-        try:
-            result = self.scopes[-1][ctx.name.text]
+            result = LangValueRSM(
+                value=fa.single_transition(Variable(ctx.name.text)),
+                ctx=ctx,
+            )
 
-        except KeyError as e:
-            raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
+        else:
+            # T-Name
+
+            try:
+                result = self.scopes[-1][ctx.name.text]
+
+            except KeyError as e:
+                raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
 
         self._exit_ctx()
 
@@ -317,16 +337,25 @@ class InterpretVisitor(LangVisitor):
         value = ctx.value.accept(self)
 
         if ctx.op.text == "*":
-            # T-KleeneStar
+            if isinstance(value, LangValueRSM):
+                # T-KleeneStarRSM
 
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, "FA")
+                result = LangValueRSM(
+                    value=fa.kleene_star(value.value).minimize(),
+                    ctx=ctx,
+                )
 
-            result = LangValueFA(
-                value=fa.kleene_star(casted_value.value).minimize(),
-                ctx=ctx,
-            )
+            else:
+                # T-KleeneStarFA
+
+                casted_value = cast_string_to_FA(value, ctx)
+                if not isinstance(casted_value, LangValueFA):
+                    raise type_error(value, ["FA", "RSM"])
+
+                result = LangValueFA(
+                    value=fa.kleene_star(casted_value.value).minimize(),
+                    ctx=ctx,
+                )
 
         elif ctx.op.text == "-":
             if isinstance(value, LangValueInt):
@@ -473,17 +502,32 @@ class InterpretVisitor(LangVisitor):
 
                 result = LangValueSet(value=left.value & right.value, ctx=ctx)
 
-            elif isinstance(casted_left := cast_string_to_FA(left, ctx), LangValueFA):
-                # T-FAIntersect
+            elif isinstance(left, LangValueRSM):
+                # T-RSM-FA-Intersect
 
                 casted_right = cast_string_to_FA(right, ctx)
                 if not isinstance(casted_right, LangValueFA):
                     raise type_error(right, "FA")
 
-                result = LangValueFA(
-                    value=fa.intersect(casted_left.value, casted_right.value),
-                    ctx=ctx,
-                )
+                raise NotImplementedError("T-RSM-FA-Intersect")
+
+            elif isinstance(casted_left := cast_string_to_FA(left, ctx), LangValueFA):
+                if isinstance(right, LangValueRSM):
+                    # T-FA-RSM-Intersect
+
+                    raise NotImplementedError("T-FA-RSM-Intersect")
+
+                else:
+                    # T-FA-FA-Intersect
+
+                    casted_right = cast_string_to_FA(right, ctx)
+                    if not isinstance(casted_right, LangValueFA):
+                        raise type_error(right, ["FA", "RSM"])
+
+                    result = LangValueFA(
+                        value=fa.intersect(casted_left.value, casted_right.value),
+                        ctx=ctx,
+                    )
 
             else:
                 raise type_error(left, ["int", "set", "FA"])
@@ -495,8 +539,10 @@ class InterpretVisitor(LangVisitor):
             if (
                 isinstance(left, LangValueString)
                 and not isinstance(casted_right, LangValueFA)
+                and not isinstance(right, LangValueRSM)
             ) or (
                 not isinstance(casted_left, LangValueFA)
+                and not isinstance(left, LangValueRSM)
                 and isinstance(right, LangValueString)
             ):
                 # T-ConcatS1, T-ConcatS2
@@ -532,15 +578,47 @@ class InterpretVisitor(LangVisitor):
                     raise type_error(right, ["string", "int", "real"])
 
             elif isinstance(casted_left, LangValueFA):
-                # T-ConcatFA
+                if isinstance(right, LangValueRSM):
+                    # T-Concat-FA-RSM
 
-                if not isinstance(casted_right, LangValueFA):
-                    raise type_error(right, ["string", "FA"])
+                    result = LangValueRSM(
+                        value=fa.concat(casted_left.value, right.value).minimize(),
+                        ctx=ctx,
+                    )
 
-                result = LangValueFA(
-                    value=fa.concat(casted_left.value, casted_right.value).minimize(),
-                    ctx=ctx,
-                )
+                else:
+                    # T-Concat-FA-FA
+
+                    if not isinstance(casted_right, LangValueFA):
+                        raise type_error(right, ["string", "FA", "RSM"])
+
+                    result = LangValueFA(
+                        value=fa.concat(
+                            casted_left.value,
+                            casted_right.value,
+                        ).minimize(),
+                        ctx=ctx,
+                    )
+
+            elif isinstance(left, LangValueRSM):
+                if isinstance(right, LangValueRSM):
+                    # T-Concat-RSM-RSM
+
+                    result = LangValueRSM(
+                        value=fa.concat(left.value, right.value).minimize(),
+                        ctx=ctx,
+                    )
+
+                else:
+                    # T-Concat-RSM-FA
+
+                    if not isinstance(casted_right, LangValueFA):
+                        raise type_error(right, ["string", "FA"])
+
+                    result = LangValueFA(
+                        value=fa.concat(left.value, casted_right.value).minimize(),
+                        ctx=ctx,
+                    )
 
             else:
                 raise type_error(left, ["string", "int", "real", "FA"])
@@ -594,17 +672,50 @@ class InterpretVisitor(LangVisitor):
 
                 result = LangValueSet(value=left.value | right.value, ctx=ctx)
 
+            elif isinstance(left, LangValueRSM):
+                if isinstance(right, LangValueRSM):
+                    # T-RSM-RSM-Union
+
+                    result = LangValueRSM(
+                        value=fa.union(left.value, right.value).minimize(),
+                        ctx=ctx,
+                    )
+
+                else:
+                    # T-RSM-FA-Union
+
+                    casted_right = cast_string_to_FA(right, ctx)
+                    if not isinstance(casted_right, LangValueFA):
+                        raise type_error(right, ["FA", "RSM"])
+
+                    result = LangValueRSM(
+                        value=fa.union(left.value, casted_right.value).minimize(),
+                        ctx=ctx,
+                    )
+
             elif isinstance(casted_left := cast_string_to_FA(left, ctx), LangValueFA):
-                # T-FAUnion
+                if isinstance(right, LangValueRSM):
+                    # T-FA-RSM-Union
 
-                casted_right = cast_string_to_FA(right, ctx)
-                if not isinstance(casted_right, LangValueFA):
-                    raise type_error(right, "FA")
+                    result = LangValueRSM(
+                        value=fa.union(casted_left.value, right.value).minimize(),
+                        ctx=ctx,
+                    )
 
-                result = LangValueFA(
-                    value=fa.union(casted_left.value, casted_right.value).minimize(),
-                    ctx=ctx,
-                )
+                else:
+                    # T-FA-FA-Union
+
+                    casted_right = cast_string_to_FA(right, ctx)
+                    if not isinstance(casted_right, LangValueFA):
+                        raise type_error(right, ["FA", "RSM"])
+
+                    result = LangValueFA(
+                        value=fa.union(
+                            casted_left.value,
+                            casted_right.value,
+                        ).minimize(),
+                        ctx=ctx,
+                    )
 
             else:
                 raise type_error(left, ["int", "set", "FA"])
@@ -690,17 +801,23 @@ class InterpretVisitor(LangVisitor):
 
         sm = ctx.sm.accept(self)
 
-        casted_sm = cast_string_to_FA(sm, ctx)
-        if not isinstance(casted_sm, LangValueFA):
-            raise type_error(sm, "FA")
-
         what_value = ctx.what_value.accept(self)
 
-        result = casted_sm.value.copy()
+        if isinstance(sm, LangValueRSM):
+            raise NotImplementedError(
+                "T-WithOnlyStartStatesRSM, T-WithOnlyFinalStatesRSM, T-WithStartStatesRSM, T-WithFinalStatesRSM"
+            )
 
-        ctx.what.accept(self)(result, what_value)
+        else:
+            casted_sm = cast_string_to_FA(sm, ctx)
+            if not isinstance(casted_sm, LangValueFA):
+                raise type_error(sm, ["FA", "RSM"])
 
-        result = LangValueFA(value=result, ctx=ctx)
+            result = casted_sm.value.copy()
+
+            ctx.what.accept(self)(result, what_value)
+
+            result = LangValueFA(value=result, ctx=ctx)
 
         self._exit_ctx()
 
@@ -762,7 +879,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__set_start_statesContext,
     ):
         def result(sm, states):
-            # T-WithOnlyStartStates
+            # T-WithOnlyStartStatesFA
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -780,7 +897,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__set_final_statesContext,
     ):
         def result(sm, states):
-            # T-WithOnlyFinalStates
+            # T-WithOnlyFinalStatesFA
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -798,7 +915,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_start_statesContext,
     ):
         def result(sm, states):
-            # T-WithStartStates
+            # T-WithStartStatesFA
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -814,7 +931,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_final_statesContext,
     ):
         def result(sm, states):
-            # T-WithFinalStates
+            # T-WithFinalStatesFA
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -837,19 +954,25 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-StartStatesOf
+        if isinstance(value, LangValueRSM):
+            # T-StartStatesOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-StartStatesOfRSM")
 
-        return LangValueSet(
-            value={
-                python_value_to_value(x.value, expr_ctx)
-                for x in casted_value.value.start_states
-            },
-            ctx=expr_ctx,
-        )
+        else:
+            # T-StartStatesOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return LangValueSet(
+                value={
+                    python_value_to_value(x.value, expr_ctx)
+                    for x in casted_value.value.start_states
+                },
+                ctx=expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__final_states.
     def visitExpr_get_clause__final_states(
@@ -864,19 +987,25 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-FinalStatesOf
+        if isinstance(value, LangValueRSM):
+            # T-FinalStatesOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-FinalStatesOfRSM")
 
-        return LangValueSet(
-            value={
-                python_value_to_value(x.value, expr_ctx)
-                for x in casted_value.value.final_states
-            },
-            ctx=expr_ctx,
-        )
+        else:
+            # T-FinalStatesOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, "FA")
+
+            return LangValueSet(
+                value={
+                    python_value_to_value(x.value, expr_ctx)
+                    for x in casted_value.value.final_states
+                },
+                ctx=expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__reachable_states.
     def visitExpr_get_clause__reachable_states(
@@ -891,13 +1020,22 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-ReachableStatesOf
+        if isinstance(value, LangValueRSM):
+            # T-ReachableStatesOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-ReachableStatesOfRSM")
 
-        return python_value_to_value(fa.reachable_states(casted_value.value), expr_ctx)
+        else:
+            # T-ReachableStatesOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return python_value_to_value(
+                fa.reachable_states(casted_value.value),
+                expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__nodes.
     def visitExpr_get_clause__nodes(
@@ -912,19 +1050,25 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-NodesOf
+        if isinstance(value, LangValueRSM):
+            # T-NodesOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-NodesOfRSM")
 
-        return LangValueSet(
-            value={
-                python_value_to_value(x.value, expr_ctx)
-                for x in casted_value.value.states
-            },
-            ctx=expr_ctx,
-        )
+        else:
+            # T-NodesOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return LangValueSet(
+                value={
+                    python_value_to_value(x.value, expr_ctx)
+                    for x in casted_value.value.states
+                },
+                ctx=expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__edges.
     def visitExpr_get_clause__edges(
@@ -939,19 +1083,25 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-EdgesOf
+        if isinstance(value, LangValueRSM):
+            # T-EdgesOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-EdgesOfRSM")
 
-        return LangValueSet(
-            value={
-                python_value_to_value((u.value, l.value, v.value), expr_ctx)
-                for u, l, v in fa.iterate_transitions(casted_value.value)
-            },
-            ctx=expr_ctx,
-        )
+        else:
+            # T-EdgesOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return LangValueSet(
+                value={
+                    python_value_to_value((u.value, l.value, v.value), expr_ctx)
+                    for u, l, v in fa.iterate_transitions(casted_value.value)
+                },
+                ctx=expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__labels.
     def visitExpr_get_clause__labels(
@@ -966,19 +1116,25 @@ class InterpretVisitor(LangVisitor):
         # use expt ctx to access value
         value = expr_ctx.sm.accept(self)
 
-        # T-LabelsOf
+        if isinstance(value, LangValueRSM):
+            # T-LabelsOfRSM
 
-        casted_value = cast_string_to_FA(value, ctx)
-        if not isinstance(casted_value, LangValueFA):
-            raise type_error(value, "FA")
+            raise NotImplementedError("T-LabelsOfRSM")
 
-        return LangValueSet(
-            value={
-                python_value_to_value(x.value, expr_ctx)
-                for x in casted_value.value.symbols
-            },
-            ctx=expr_ctx,
-        )
+        else:
+            # T-LabelsOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return LangValueSet(
+                value={
+                    python_value_to_value(x.value, expr_ctx)
+                    for x in casted_value.value.symbols
+                },
+                ctx=expr_ctx,
+            )
 
     # Visit a parse tree produced by LangParser#literal__string.
     def visitLiteral__string(self, ctx: LangParser.Literal__stringContext):
