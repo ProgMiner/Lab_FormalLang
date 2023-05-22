@@ -140,6 +140,9 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
             ctx=ctx,
         )
 
+    if isinstance(value, Variable):
+        return python_value_to_value(value.value, ctx)
+
     try:
         iter(value)
 
@@ -800,13 +803,14 @@ class InterpretVisitor(LangVisitor):
         self._enter_ctx(ctx)
 
         sm = ctx.sm.accept(self)
-
         what_value = ctx.what_value.accept(self)
 
         if isinstance(sm, LangValueRSM):
-            raise NotImplementedError(
-                "T-WithOnlyStartStatesRSM, T-WithOnlyFinalStatesRSM, T-WithStartStatesRSM, T-WithFinalStatesRSM"
-            )
+            result = sm.value.copy()
+
+            ctx.what.accept(self)(result, what_value)
+
+            result = LangValueRSM(value=result, ctx=ctx)
 
         else:
             casted_sm = cast_string_to_FA(sm, ctx)
@@ -879,7 +883,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__set_start_statesContext,
     ):
         def result(sm, states):
-            # T-WithOnlyStartStatesFA
+            # T-WithOnlyStartStatesFA, T-WithOnlyStartStatesRSM
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -897,7 +901,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__set_final_statesContext,
     ):
         def result(sm, states):
-            # T-WithOnlyFinalStatesFA
+            # T-WithOnlyFinalStatesFA, T-WithOnlyFinalStatesRSM
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -915,7 +919,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_start_statesContext,
     ):
         def result(sm, states):
-            # T-WithStartStatesFA
+            # T-WithStartStatesFA, T-WithStartStatesRSM
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -931,7 +935,7 @@ class InterpretVisitor(LangVisitor):
         ctx: LangParser.Expr_set_clause__add_final_statesContext,
     ):
         def result(sm, states):
-            # T-WithFinalStatesFA
+            # T-WithFinalStatesFA, T-WithFinalStatesRSM
 
             if not isinstance(states, LangValueSet):
                 raise type_error(states, "set")
@@ -941,6 +945,27 @@ class InterpretVisitor(LangVisitor):
 
         return result
 
+    def _get_sm_from_expr(self, ctx: LangParser.Expr__getContext) -> EpsilonNFA:
+        if not isinstance(ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
+
+        # use expt ctx to access value
+        value = ctx.sm.accept(self)
+
+        if isinstance(value, LangValueRSM):
+            # T-StartStatesOfRSM, T-FinalStatesOfRSM, T-NodesOfRSM, T-EdgesOfRSM, T-LabelsOfRSM
+
+            return value.value
+
+        else:
+            # T-StartStatesOfFA, T-FinalStatesOfFA, T-NodesOfFA, T-EdgesOfFA, T-LabelsOfFA
+
+            casted_value = cast_string_to_FA(value, ctx)
+            if not isinstance(casted_value, LangValueFA):
+                raise type_error(value, ["FA", "RSM"])
+
+            return casted_value.value
+
     # Visit a parse tree produced by LangParser#expr_get_clause__start_states.
     def visitExpr_get_clause__start_states(
         self,
@@ -948,31 +973,12 @@ class InterpretVisitor(LangVisitor):
     ):
         expr_ctx = ctx.parentCtx
 
-        if not isinstance(expr_ctx, LangParser.Expr__getContext):
-            raise ValueError("cannot interpret without parent expr context")
+        sm = self._get_sm_from_expr(expr_ctx)
 
-        # use expt ctx to access value
-        value = expr_ctx.sm.accept(self)
-
-        if isinstance(value, LangValueRSM):
-            # T-StartStatesOfRSM
-
-            raise NotImplementedError("T-StartStatesOfRSM")
-
-        else:
-            # T-StartStatesOfFA
-
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, ["FA", "RSM"])
-
-            return LangValueSet(
-                value={
-                    python_value_to_value(x.value, expr_ctx)
-                    for x in casted_value.value.start_states
-                },
-                ctx=expr_ctx,
-            )
+        return LangValueSet(
+            value={python_value_to_value(x.value, expr_ctx) for x in sm.start_states},
+            ctx=expr_ctx,
+        )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__final_states.
     def visitExpr_get_clause__final_states(
@@ -981,31 +987,12 @@ class InterpretVisitor(LangVisitor):
     ):
         expr_ctx = ctx.parentCtx
 
-        if not isinstance(expr_ctx, LangParser.Expr__getContext):
-            raise ValueError("cannot interpret without parent expr context")
+        sm = self._get_sm_from_expr(expr_ctx)
 
-        # use expt ctx to access value
-        value = expr_ctx.sm.accept(self)
-
-        if isinstance(value, LangValueRSM):
-            # T-FinalStatesOfRSM
-
-            raise NotImplementedError("T-FinalStatesOfRSM")
-
-        else:
-            # T-FinalStatesOfFA
-
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, "FA")
-
-            return LangValueSet(
-                value={
-                    python_value_to_value(x.value, expr_ctx)
-                    for x in casted_value.value.final_states
-                },
-                ctx=expr_ctx,
-            )
+        return LangValueSet(
+            value={python_value_to_value(x.value, expr_ctx) for x in sm.final_states},
+            ctx=expr_ctx,
+        )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__reachable_states.
     def visitExpr_get_clause__reachable_states(
@@ -1044,31 +1031,12 @@ class InterpretVisitor(LangVisitor):
     ):
         expr_ctx = ctx.parentCtx
 
-        if not isinstance(expr_ctx, LangParser.Expr__getContext):
-            raise ValueError("cannot interpret without parent expr context")
+        sm = self._get_sm_from_expr(expr_ctx)
 
-        # use expt ctx to access value
-        value = expr_ctx.sm.accept(self)
-
-        if isinstance(value, LangValueRSM):
-            # T-NodesOfRSM
-
-            raise NotImplementedError("T-NodesOfRSM")
-
-        else:
-            # T-NodesOfFA
-
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, ["FA", "RSM"])
-
-            return LangValueSet(
-                value={
-                    python_value_to_value(x.value, expr_ctx)
-                    for x in casted_value.value.states
-                },
-                ctx=expr_ctx,
-            )
+        return LangValueSet(
+            value={python_value_to_value(x.value, expr_ctx) for x in sm.states},
+            ctx=expr_ctx,
+        )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__edges.
     def visitExpr_get_clause__edges(
@@ -1077,31 +1045,15 @@ class InterpretVisitor(LangVisitor):
     ):
         expr_ctx = ctx.parentCtx
 
-        if not isinstance(expr_ctx, LangParser.Expr__getContext):
-            raise ValueError("cannot interpret without parent expr context")
+        sm = self._get_sm_from_expr(expr_ctx)
 
-        # use expt ctx to access value
-        value = expr_ctx.sm.accept(self)
-
-        if isinstance(value, LangValueRSM):
-            # T-EdgesOfRSM
-
-            raise NotImplementedError("T-EdgesOfRSM")
-
-        else:
-            # T-EdgesOfFA
-
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, ["FA", "RSM"])
-
-            return LangValueSet(
-                value={
-                    python_value_to_value((u.value, l.value, v.value), expr_ctx)
-                    for u, l, v in fa.iterate_transitions(casted_value.value)
-                },
-                ctx=expr_ctx,
-            )
+        return LangValueSet(
+            value={
+                python_value_to_value((u.value, l.value, v.value), expr_ctx)
+                for u, l, v in fa.iterate_transitions(sm)
+            },
+            ctx=expr_ctx,
+        )
 
     # Visit a parse tree produced by LangParser#expr_get_clause__labels.
     def visitExpr_get_clause__labels(
@@ -1110,31 +1062,12 @@ class InterpretVisitor(LangVisitor):
     ):
         expr_ctx = ctx.parentCtx
 
-        if not isinstance(expr_ctx, LangParser.Expr__getContext):
-            raise ValueError("cannot interpret without parent expr context")
+        sm = self._get_sm_from_expr(expr_ctx)
 
-        # use expt ctx to access value
-        value = expr_ctx.sm.accept(self)
-
-        if isinstance(value, LangValueRSM):
-            # T-LabelsOfRSM
-
-            raise NotImplementedError("T-LabelsOfRSM")
-
-        else:
-            # T-LabelsOfFA
-
-            casted_value = cast_string_to_FA(value, ctx)
-            if not isinstance(casted_value, LangValueFA):
-                raise type_error(value, ["FA", "RSM"])
-
-            return LangValueSet(
-                value={
-                    python_value_to_value(x.value, expr_ctx)
-                    for x in casted_value.value.symbols
-                },
-                ctx=expr_ctx,
-            )
+        return LangValueSet(
+            value={python_value_to_value(x.value, expr_ctx) for x in sm.symbols},
+            ctx=expr_ctx,
+        )
 
     # Visit a parse tree produced by LangParser#literal__string.
     def visitLiteral__string(self, ctx: LangParser.Literal__stringContext):
