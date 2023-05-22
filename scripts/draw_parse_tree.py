@@ -9,4 +9,4 @@ if __name__ == "__main__":
 
     from project.lang import parse, write_to_dot
 
-    write_to_dot(parse(), "result.dot")
+    write_to_dot(parse(), sys.argv[1] if len(sys.argv) > 1 else "result.dot")
