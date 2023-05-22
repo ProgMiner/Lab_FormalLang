@@ -17,10 +17,11 @@ def load_by_name(name: str) -> MultiDiGraph:
 
 def load_from_file(path: str) -> MultiDiGraph:
     """
-    Loads graph from file by path.
+    Loads graph from CSV file by path.
+    Uses cfpq.graph_from_csv to parse data.
     """
 
-    raise NotImplementedError
+    return cfpq.graph_from_csv(path)
 
 
 def load(name: str) -> MultiDiGraph:
