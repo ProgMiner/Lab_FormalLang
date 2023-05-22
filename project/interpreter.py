@@ -286,7 +286,10 @@ class InterpretVisitor(LangVisitor):
             if not isinstance(casted_value, LangValueFA):
                 raise type_error(value, "FA")
 
-            result = LangValueFA(value=fa.kleene_star(casted_value.value), ctx=ctx)
+            result = LangValueFA(
+                value=fa.kleene_star(casted_value.value).minimize(),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == "-":
             if isinstance(value, LangValueInt):
@@ -441,7 +444,7 @@ class InterpretVisitor(LangVisitor):
                     raise type_error(right, "FA")
 
                 result = LangValueFA(
-                    value=casted_left.value & casted_right.value,
+                    value=fa.intersect(casted_left.value, casted_right.value),
                     ctx=ctx,
                 )
 
@@ -498,7 +501,7 @@ class InterpretVisitor(LangVisitor):
                     raise type_error(right, ["string", "FA"])
 
                 result = LangValueFA(
-                    value=fa.concat(casted_left.value, casted_right.value),
+                    value=fa.concat(casted_left.value, casted_right.value).minimize(),
                     ctx=ctx,
                 )
 
@@ -562,7 +565,7 @@ class InterpretVisitor(LangVisitor):
                     raise type_error(right, "FA")
 
                 result = LangValueFA(
-                    value=fa.union(casted_left.value, casted_right.value),
+                    value=fa.union(casted_left.value, casted_right.value).minimize(),
                     ctx=ctx,
                 )
 
@@ -843,11 +846,21 @@ class InterpretVisitor(LangVisitor):
         self,
         ctx: LangParser.Expr_get_clause__reachable_statesContext,
     ):
-        self._enter_ctx(ctx)
+        expr_ctx = ctx.parentCtx
 
-        raise NotImplementedError
+        if not isinstance(expr_ctx, LangParser.Expr__getContext):
+            raise ValueError("cannot interpret without parent expr context")
+
+        # use expt ctx to access value
+        value = expr_ctx.sm.accept(self)
 
         # T-ReachableStatesOf
+
+        casted_value = cast_string_to_FA(value, ctx)
+        if not isinstance(casted_value, LangValueFA):
+            raise type_error(value, "FA")
+
+        return python_value_to_value(fa.reachable_states(casted_value.value), expr_ctx)
 
     # Visit a parse tree produced by LangParser#expr_get_clause__nodes.
     def visitExpr_get_clause__nodes(
@@ -898,9 +911,7 @@ class InterpretVisitor(LangVisitor):
         return LangValueSet(
             value={
                 python_value_to_value((u.value, l.value, v.value), expr_ctx)
-                for u, x in casted_value.value.to_dict().items()
-                for l, vs in x.items()
-                for v in vs
+                for u, l, v in fa.iterate_transitions(casted_value.value)
             },
             ctx=expr_ctx,
         )
