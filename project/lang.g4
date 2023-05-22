@@ -29,7 +29,7 @@ stmt
 
 expr
     : '(' expr_=expr ')'                                                # expr__parens
-    | name=NAME                                                         # expr__name
+    | rec='rec'? name=NAME                                              # expr__name
     | value=literal                                                     # expr__literal
     | 'load' name=STRING                                                # expr__load
     | value=expr op='*'                                                 # expr__unary_op

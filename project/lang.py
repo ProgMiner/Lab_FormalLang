@@ -136,7 +136,9 @@ class DotTreeVisitor(LangVisitor):
 
     # Visit a parse tree produced by langParser#expr__name.
     def visitExpr__name(self, ctx: LangParser.Expr__nameContext):
-        node = Node(self.next_node_number(), label="name")
+        rec = "rec " if ctx.rec is not None else ""
+
+        node = Node(self.next_node_number(), label=f"{rec}name")
         self.graph.add_node(node)
 
         child = Node(self.next_node_number(), label=ctx.name.text)
