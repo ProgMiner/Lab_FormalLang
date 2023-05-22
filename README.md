@@ -197,7 +197,7 @@ WS: S+;
         - конкатенация: `<expr> + <expr>` (допустима конкатенация строки с числом),
         - повторение: `<expr> * <expr>` (один операнд строковый, другой целочисленный).
 
-    - Для конечных автоматов:
+    - Для (рекурсивных) конечных автоматов:
         - конкатенация языков: `<expr> + <expr>`,
         - объединение языков: `<expr> | <expr>`,
         - пересечение языков: `<expr> & <expr>`,
@@ -232,7 +232,8 @@ WS: S+;
     выражение имени считается ленивым, то есть всё выражение будет вычислено позже при первой
     необходимости. **Важно**, что вычисление происходит единожды и в нём используются определения,
     имеющиеся на момент вычисления. То есть, если ниже вычисления используемое имя будет
-    переопределено, то это уже не повлияет на последующие вычисления.
+    переопределено, то это уже не повлияет на последующие вычисления. Ключевое слово `rec`
+    позволяет обращаться **только** к переменным типа `RSM`.
 
 - Литерал
 
@@ -272,6 +273,7 @@ WS: S+;
 - `set` — Множество значений любых из перечисленных типов, множества **гетерогенны**,
     то есть одно множество может содержать значения разных типов
 - `FA` — Конечный автомат
+- `RSM` — Рекурсивный конечный автомат
 - $`T \rightarrow S`$ — Лямбда-функция
 
 #### Лямбда-функция
@@ -314,6 +316,8 @@ $$\Gamma \vdash \texttt{INT\\_NUMBER} \texttt{..} \texttt{INT\\_NUMBER} : \textt
 
 $$\Gamma \vdash \texttt{load STRING} : \texttt{FA} \quad \text{(T — Load)}$$
 
+$$\Gamma \vdash \texttt{rec NAME} : \texttt{RSM} \quad \text{(T — RecName)}$$
+
 $$\frac{\texttt{NAME} : T \in \Gamma}{\Gamma \vdash \texttt{NAME} : T} \quad \text{(T — Name)}$$
 
 $$\frac{\Gamma \vdash t : \texttt{string}}{\Gamma \vdash t : \texttt{FA}} \quad \text{(T — Smb)}$$
@@ -322,31 +326,53 @@ $$\frac{\Gamma \vdash t_1 : T_1 \quad ... \quad \Gamma \vdash t_n : T_n}{\Gamma 
 
 $$\frac{p : T \Rightarrow \Delta \quad \Gamma, \Delta \vdash t : S}{\Gamma \vdash \texttt{\\\\} p ~ \texttt{->} ~ t : T \rightarrow S} \quad \text{(T — Lambda)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyStartStates)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyStartStatesFA)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyFinalStates)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only start states} ~ t_2 : \texttt{RSM}} \quad \text{(T — WithOnlyStartStatesRSM)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithStartStates)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithOnlyFinalStatesFA)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithFinalStates)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with only final states} ~ t_2 : \texttt{RSM}} \quad \text{(T — WithOnlyFinalStatesRSM)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{start states of} ~ t : \texttt{set}} \quad \text{(T — StartStatesOf)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] start states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithStartStatesFA)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{final states of} ~ t : \texttt{set}} \quad \text{(T — FinalStatesOf)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] start states} ~ t_2 : \texttt{RSM}} \quad \text{(T — WithStartStatesRSM)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{reachable states of} ~ t : \texttt{set}} \quad \text{(T — ReachableStatesOf)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] final states} ~ t_2 : \texttt{FA}} \quad \text{(T — WithFinalStatesFA)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesOf)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 ~ \texttt{with [additional] final states} ~ t_2 : \texttt{RSM}} \quad \text{(T — WithFinalStatesRSM)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesOf)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{start states of} ~ t : \texttt{set}} \quad \text{(T — StartStatesOfFA)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsOf)}$$
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{start states of} ~ t : \texttt{set}} \quad \text{(T — StartStatesOfRSM)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : T \rightarrow S}{\Gamma \vdash t_1 ~ \texttt{mapped with} ~ t_2 : \texttt{set}} \quad \text{(T — Map)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{final states of} ~ t : \texttt{set}} \quad \text{(T — FinalStatesOfFA)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : T \rightarrow \texttt{boolean}}{\Gamma \vdash t_1 ~ \texttt{filtered with} ~ t_2 : \texttt{set}} \quad \text{(T — Filter)}$$
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{final states of} ~ t : \texttt{set}} \quad \text{(T — FinalStatesOfRSM)}$$
 
-$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash t* : \texttt{FA}} \quad \text{(T — KleeneStar)}$$
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{reachable states of} ~ t : \texttt{set}} \quad \text{(T — ReachableStatesOfFA)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{reachable states of} ~ t : \texttt{set}} \quad \text{(T — ReachableStatesOfRSM)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesOfFA)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{nodes of} ~ t : \texttt{set}} \quad \text{(T — NodesOfRSM)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesOfFA)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{edges of} ~ t : \texttt{set}} \quad \text{(T — EdgesOfRSM)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsOfFA)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash \texttt{labels of} ~ t : \texttt{set}} \quad \text{(T — LabelsOfRSM)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : T \rightarrow S}{\Gamma \vdash t_1 ~ \texttt{mapped with} ~ t_2 : \texttt{set}} \quad \text{(T — Map)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : T \rightarrow \texttt{boolean}}{\Gamma \vdash t_1 ~ \texttt{filtered with} ~ t_2 : \texttt{set}} \quad \text{(T — Filter)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{FA}}{\Gamma \vdash t* : \texttt{FA}} \quad \text{(T — KleeneStarFA)}$$
+
+$$\frac{\Gamma \vdash t : \texttt{RSM}}{\Gamma \vdash t* : \texttt{RSM}} \quad \text{(T — KleeneStarRSM)}$$
 
 $$\frac{\Gamma \vdash t : \texttt{int}}{\Gamma \vdash -t : \texttt{int}} \quad \text{(T — UnaryMinusI)}$$
 
@@ -382,7 +408,11 @@ $$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}
 
 $$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 \\& t_2 : \texttt{set}} \quad \text{(T — SetIntersect)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 \\& t_2 : \texttt{FA}} \quad \text{(T — FAIntersect)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 \\& t_2 : \texttt{FA}} \quad \text{(T — FA-FA-Intersect)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{RSM}}{\Gamma \vdash t_1 \\& t_2 : \texttt{RSM}} \quad \text{(T — FA-RSM-Intersect)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 \\& t_2 : \texttt{RSM}} \quad \text{(T — RSM-FA-Intersect)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 + t_2 : \texttt{int}} \quad \text{(T — AddII)}$$
 
@@ -392,11 +422,17 @@ $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{int}
 
 $$\frac{\Gamma \vdash t_1 : \texttt{real} \quad \Gamma \vdash t_2 : \texttt{real}}{\Gamma \vdash t_1 + t_2 : \texttt{real}} \quad \text{(T — AddRR)}$$
 
-$$\frac{\Gamma \vdash t_1 : T \quad T \neq \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS1)}$$
+$$\frac{\Gamma \vdash t_1 : T \quad T \neq \texttt{FA} \quad T \neq \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{string}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS1)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : T \quad T \neq \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS2)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{string} \quad \Gamma \vdash t_2 : T \quad T \neq \texttt{FA} \quad T \neq \texttt{RSM}}{\Gamma \vdash t_1 + t_2 : \texttt{string}} \quad \text{(T — ConcatS2)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{FA}} \quad \text{(T — ConcatFA)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{FA}} \quad \text{(T — Concat-FA-FA)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{RSM}}{\Gamma \vdash t_1 + t_2 : \texttt{RSM}} \quad \text{(T — Concat-FA-RSM)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 + t_2 : \texttt{RSM}} \quad \text{(T — Concat-RSM-FA)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{RSM}}{\Gamma \vdash t_1 + t_2 : \texttt{RSM}} \quad \text{(T — Concat-RSM-RSM)}$$
 
 $$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}{\Gamma \vdash t_1 - t_2 : \texttt{int}} \quad \text{(T — SubII)}$$
 
@@ -410,7 +446,13 @@ $$\frac{\Gamma \vdash t_1 : \texttt{int} \quad \Gamma \vdash t_2 : \texttt{int}}
 
 $$\frac{\Gamma \vdash t_1 : \texttt{set} \quad \Gamma \vdash t_2 : \texttt{set}}{\Gamma \vdash t_1 | t_2 : \texttt{set}} \quad \text{(T — SetUnion)}$$
 
-$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 | t_2 : \texttt{FA}} \quad \text{(T — FAUnion)}$$
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 | t_2 : \texttt{FA}} \quad \text{(T — FA-FA-Union)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{FA} \quad \Gamma \vdash t_2 : \texttt{RSM}}{\Gamma \vdash t_1 | t_2 : \texttt{RSM}} \quad \text{(T — FA-RSM-Union)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{FA}}{\Gamma \vdash t_1 | t_2 : \texttt{RSM}} \quad \text{(T — RSM-FA-Union)}$$
+
+$$\frac{\Gamma \vdash t_1 : \texttt{RSM} \quad \Gamma \vdash t_2 : \texttt{RSM}}{\Gamma \vdash t_1 | t_2 : \texttt{RSM}} \quad \text{(T — RSM-RSM-Union)}$$
 
 $$\frac{\Gamma \vdash t_1 : T \quad \Gamma \vdash t_2 : S}{\Gamma \vdash t_1 == t_2 : \texttt{boolean}} \quad \text{(T — Equals)}$$
 
