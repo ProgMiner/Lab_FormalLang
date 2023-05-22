@@ -41,7 +41,12 @@ LangValue = (
 
 
 def interpret(program: ParserRuleContext, out=None):
-    """ """
+    """
+    Interpret program and print output to `out`.
+    Value of `out` is passed to parameter `file` of `print` function.
+
+    Program could be any of language context tree node types.
+    """
 
     visitor = InterpretVisitor(out=out)
 
@@ -53,10 +58,18 @@ def interpret(program: ParserRuleContext, out=None):
 
 
 def ctx_location(ctx: ParserRuleContext) -> str:
+    """
+    Print location of context tree node.
+    """
+
     return f"{ctx.start.line}:{ctx.start.column + 1}"
 
 
 def value_to_string(value: LangValue):
+    """
+    Print language value to string.
+    """
+
     if isinstance(value, LangValueTuple):
         return f'({", ".join([value_to_string(x) for x in value.value])})'
 
@@ -73,6 +86,10 @@ def value_to_string(value: LangValue):
 
 
 def type_error(value: LangValue, expected: str | Iterable[str]) -> ValueError:
+    """
+    Produce error to display thet value has no expected type.
+    """
+
     return ValueError(
         f"""\
 {value_to_string(value)} created on {ctx_location(value.ctx)} is of type \
@@ -82,6 +99,10 @@ def type_error(value: LangValue, expected: str | Iterable[str]) -> ValueError:
 
 
 def parse_token(token: Token) -> int | float | str:
+    """
+    Parse value of INT_NUMBER, REAL_NUMBER or STRING token to Python value.
+    """
+
     if token.type not in {
         LangLexer.INT_NUMBER,
         LangLexer.REAL_NUMBER,
@@ -93,6 +114,10 @@ def parse_token(token: Token) -> int | float | str:
 
 
 def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
+    """
+    Wrap Python value to language value.
+    """
+
     if isinstance(value, int):
         return LangValueInt(value=value, ctx=ctx)
 
@@ -123,6 +148,10 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
 
 
 def value_to_python_value(value: LangValue) -> any:
+    """
+    Unwrap language value to Python value.
+    """
+
     if isinstance(value, LangValueBoolean):
         return value.value
 
@@ -151,6 +180,10 @@ def value_to_python_value(value: LangValue) -> any:
 
 
 def cast_string_to_FA(value: LangValue, ctx: ParserRuleContext) -> LangValue:
+    """
+    Perform T-Smb cast if applicable.
+    """
+
     if not isinstance(value, LangValueString):
         return value
 
@@ -180,6 +213,10 @@ class InterpretVisitor(LangVisitor):
 
     @property
     def ctx(self) -> ParserRuleContext:
+        """
+        Current or last interpreted context tree node. Usable to display errors.
+        """
+
         if len(self.ctx_stack) == 0:
             return None
 
