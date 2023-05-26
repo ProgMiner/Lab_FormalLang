@@ -41,3 +41,7 @@ jobs:
       - name: Check DOT working
         run: |
           ./scripts/draw_parse_tree.py < ./examples/from_readme.fl
+
+      - name: Check interpreter working
+        run: |
+          ./scripts/interpret.py ./examples/from_readme.fl
