@@ -1,4 +1,5 @@
 from pyformlang.finite_automaton import EpsilonNFA
+from pyformlang.regular_expression import Regex
 from project.fa import iterate_transitions
 from project.rfa import Nonterminal
 import project.interpreter as i
@@ -7,6 +8,7 @@ from project.lang import parse
 import project.fa as fa
 import tempfile
 import pytest
+import math
 import io
 
 
@@ -121,6 +123,31 @@ def test_with():
         i.interpret(parse('("a" with final states { 0 })', "expr")),
     ).final_states
 
+    assert {1} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with only start states { 1 })", "expr")),
+    ).start_states
+    assert {0} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with only final states { 0 })", "expr")),
+    ).final_states
+    assert {0, 1} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with additional start states { 1 })", "expr")),
+    ).start_states
+    assert {0, 1} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with additional final states { 0 })", "expr")),
+    ).final_states
+    assert {0, 1} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with start states { 1 })", "expr")),
+    ).start_states
+    assert {0, 1} == check_value_type(
+        i.LangValueRSM,
+        i.interpret(parse("(rec a with final states { 0 })", "expr")),
+    ).final_states
+
 
 def test_of():
     check_value(i.LangValueSet, {0}, i.interpret(parse('start states of "a"', "expr")))
@@ -137,6 +164,33 @@ def test_of():
         i.interpret(parse('edges of "a"', "expr")),
     )
     check_value(i.LangValueSet, {"a"}, i.interpret(parse('labels of "a"', "expr")))
+
+    check_value(
+        i.LangValueSet,
+        {0},
+        i.interpret(parse("start states of rec a", "expr")),
+    )
+    check_value(
+        i.LangValueSet,
+        {1},
+        i.interpret(parse("final states of rec a", "expr")),
+    )
+    check_value(
+        i.LangValueSet,
+        {(0, 1)},
+        i.interpret(parse("reachable states of rec a", "expr")),
+    )
+    check_value(i.LangValueSet, {0, 1}, i.interpret(parse("nodes of rec a", "expr")))
+    check_value(
+        i.LangValueSet,
+        {(0, "Nonterminal(a)", 1)},
+        i.interpret(parse("edges of rec a", "expr")),
+    )
+    check_value(
+        i.LangValueSet,
+        {"Nonterminal(a)"},
+        i.interpret(parse("labels of rec a", "expr")),
+    )
 
 
 def test_map_filter():
@@ -259,31 +313,415 @@ def test_unary_op():
     )
 
 
-# def test_binary_op():
-#     assert l.check_syntax("a * b;")
-#     assert l.check_syntax("a / b;")
-#     assert l.check_syntax("a & b;")
-#     assert l.check_syntax("a + b;")
-#     assert l.check_syntax("a - b;")
-#     assert l.check_syntax("a | b;")
-#     assert l.check_syntax("a == b;")
-#     assert l.check_syntax("a != b;")
-#     assert l.check_syntax("a < b;")
-#     assert l.check_syntax("a > b;")
-#     assert l.check_syntax("a <= b;")
-#     assert l.check_syntax("a >= b;")
-#     assert l.check_syntax("a in b;")
-#     assert l.check_syntax("a not in b;")
-#     assert l.check_syntax("a and b;")
-#     assert l.check_syntax("a or b;")
-#     assert l.check_syntax("a not   \t  \n  in b;")
-#
-#     assert (
-#         "([] ([14] ([31 14] ([4 31 14] ([4 4 31 14] ([4 4 4 31 14] ([4 4 4 4 31 14] ([4 4 4 4 4 31 14] ([4 4 4 4 4 4 31 14] ([4 4 4 4 4 4 4 31 14] a) * ([56 4 4 4 4 4 4 31 14] b)) + ([59 4 4 4 4 4 31 14] ([4 59 4 4 4 4 4 31 14] a) / ([56 59 4 4 4 4 4 31 14] b))) - ([59 4 4 4 4 31 14] ([4 59 4 4 4 4 31 14] a) & ([56 59 4 4 4 4 31 14] b))) | ([59 4 4 4 31 14] c)) == ([62 4 4 31 14] a)) or ([68 4 31 14] ([4 68 4 31 14] ([4 4 68 4 31 14] a) < ([62 4 68 4 31 14] c)) and ([65 68 4 31 14] ([4 65 68 4 31 14] a) in ([62 65 68 4 31 14] c)))) or ([68 31 14] ([4 68 31 14] a) not in ([62 68 31 14] ([4 62 68 31 14] c) | ([59 62 68 31 14] b))))) ; <EOF>)"
-#         == l.parse(
-#             "a * b + a / b - a & b | c == a or a < c and a in c or a not in c | b;"
-#         ).toStringTree()
-#     )
+def test_binary_op_boolean():
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) == (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) == (1 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) != (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) != (1 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) < (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) < (1 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 2) < (2 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) <= (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) <= (1 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 2) <= (2 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 1) > (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) > (1 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 2) > (2 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) >= (2 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("((1 == 1) >= (1 == 2))", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("((1 == 2) >= (2 == 2))", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("(1 == 1 or 2 == 2)", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("(1 == 1 or 1 == 2)", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("(1 == 2 or 2 == 1)", "expr")),
+    )
+
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("(1 == 1 and 2 == 2)", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("(1 == 1 and 1 == 2)", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("(1 == 2 and 2 == 1)", "expr")),
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 or 2 == 2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 1 created on 1:2 is of type int while (one of) boolean is expected"
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 == 1 or 2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 2 created on 1:12 is of type int while (one of) boolean is expected"
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 and 2 == 2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 1 created on 1:2 is of type int while (one of) boolean is expected"
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 == 1 and 2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 2 created on 1:13 is of type int while (one of) boolean is expected"
+    )
+
+
+def test_binary_op_int():
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(1 == 2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(2 == 2)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1 != 2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(2 != 2)", "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(2 < 2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1 < 2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(3 < 1)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(2 <= 2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1 <= 2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(3 <= 1)", "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(2 > 2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(1 > 2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(3 > 1)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(2 >= 2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(1 >= 2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(3 >= 1)", "expr")))
+
+    check_value(i.LangValueInt, 3, i.interpret(parse("(1 + 2)", "expr")))
+    check_value(i.LangValueInt, -1, i.interpret(parse("(1 - 2)", "expr")))
+    check_value(i.LangValueInt, 2, i.interpret(parse("(1 * 2)", "expr")))
+    check_value(i.LangValueInt, 2, i.interpret(parse("(6 / 3)", "expr")))
+    check_value(i.LangValueReal, 0.5, i.interpret(parse("(1 / 2)", "expr")))
+    check_value(i.LangValueInt, 3, i.interpret(parse("(1 | 2)", "expr")))
+    check_value(i.LangValueInt, 2, i.interpret(parse("(7 & 2)", "expr")))
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 | .2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 0.2 created on 1:6 is of type real while (one of) int is expected"
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(1 & .2)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 0.2 created on 1:6 is of type real while (one of) int is expected"
+    )
+
+
+def test_binary_op_real():
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1.0 == 1)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.1 == .2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.2 == .2)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.1 != .2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(2 != 2.0)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.2 != .2)", "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.2 < .2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.1 < .2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(1 < .1)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.2 <= .2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.1 <= .2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(1 <= .1)", "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.2 > .2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.1 > .2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1 > .1)", "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(.2 >= .2)", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("(.1 >= .2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("(1 >= .1)", "expr")))
+
+    check_value(i.LangValueReal, 3.2, i.interpret(parse("(1 + 2.2)", "expr")))
+    assert math.isclose(
+        -0.6,
+        check_value_type(i.LangValueReal, i.interpret(parse("(1.4 - 2)", "expr"))),
+    )
+    check_value(i.LangValueReal, 2.4, i.interpret(parse("(1.2 * 2)", "expr")))
+    check_value(i.LangValueInt, 4, i.interpret(parse("(3.6 / 0.9)", "expr")))
+    check_value(i.LangValueReal, 0.65, i.interpret(parse("(1.3 / 2)", "expr")))
+
+
+def test_binary_op_string():
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("a" == "b")', "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("b" == "b")', "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("a" != "b")', "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("b" != "b")', "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("b" < "b")', "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("a" < "b")', "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("c" < "a")', "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("b" <= "b")', "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("a" <= "b")', "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("c" <= "a")', "expr")))
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("b" > "b")', "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("a" > "b")', "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("c" > "a")', "expr")))
+
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("b" >= "b")', "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse('("a" >= "b")', "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse('("c" >= "a")', "expr")))
+
+    check_value(i.LangValueString, "ab", i.interpret(parse('("a" + "b")', "expr")))
+    check_value(i.LangValueString, "a3", i.interpret(parse('("a" + 3)', "expr")))
+    check_value(i.LangValueString, "aaa", i.interpret(parse('("a" * 3)', "expr")))
+    check_value(i.LangValueString, "bbb", i.interpret(parse('(3 * "b")', "expr")))
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse('(3.5 * "b")', "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 'b' created on 1:8 is of type string while (one of) ['int', 'real'] is expected"
+    )
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse('("a" * "b")', "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: 'b' created on 1:8 is of type string while (one of) int is expected"
+    )
+
+
+def test_binary_op_fa():
+    check_value(
+        i.LangValueFA,
+        Regex("a b").to_epsilon_nfa(),
+        i.interpret(parse('(("a" | "a") + "b")', "expr")),
+    )
+
+    check_value(
+        i.LangValueFA,
+        Regex("a | b").to_epsilon_nfa(),
+        i.interpret(parse('("a" | "b")', "expr")),
+    )
+
+    result = check_value_type(i.LangValueFA, i.interpret(parse('("a" & "b")', "expr")))
+
+    assert result.states == {(0, 0), (1, 1)}
+    assert result.start_states == {(0, 0)}
+    assert result.final_states == {(1, 1)}
+    assert result.symbols == set()
+    assert list(iterate_transitions(result)) == []
+
+    result = check_value_type(
+        i.LangValueFA,
+        i.interpret(parse('("a"* + "b") & ("a" + "b"*)', "expr")),
+    )
+
+    assert len(result.states) == 3
+    assert len(result.start_states) == 1
+    assert len(result.final_states) == 1
+    assert result.symbols == {"a", "b"}
+    assert len(list(iterate_transitions(result))) == 2
+
+    assert result.accepts("ab")
+    assert not result.accepts("a")
+    assert not result.accepts("b")
+    assert not result.accepts("aaab")
+    assert not result.accepts("abbb")
+
+
+def test_binary_op_rsm():
+    value = EpsilonNFA()
+
+    value.add_transition(0, Nonterminal("a"), 1)
+    value.add_transition(1, "b", 2)
+    value.add_start_state(0)
+    value.add_final_state(2)
+
+    check_value(i.LangValueRSM, value, i.interpret(parse('(rec a + "b")', "expr")))
+
+    value = EpsilonNFA()
+    value.add_transition(0, "a", 1)
+    value.add_transition(1, Nonterminal("b"), 2)
+    value.add_start_state(0)
+    value.add_final_state(2)
+
+    check_value(i.LangValueRSM, value, i.interpret(parse('("a" + rec b)', "expr")))
+
+    value = EpsilonNFA()
+    value.add_transition(0, Nonterminal("a"), 1)
+    value.add_transition(0, "b", 1)
+    value.add_start_state(0)
+    value.add_final_state(1)
+
+    check_value(i.LangValueRSM, value, i.interpret(parse('(rec a | "b")', "expr")))
+
+    value = EpsilonNFA()
+    value.add_transition(0, "a", 1)
+    value.add_transition(0, Nonterminal("b"), 1)
+    value.add_start_state(0)
+    value.add_final_state(1)
+
+    check_value(i.LangValueRSM, value, i.interpret(parse('("a" | rec b)', "expr")))
+
+    with pytest.raises(i.InterpretError) as e:
+        i.interpret(parse("(rec a & rec b)", "expr"))
+
+    assert (
+        str(e.value)
+        == "1:2: RSM ($.(Nonterminal.value='b')) created on 1:10 is of type RSM while (one of) FA is expected"
+    )
+
+
+def test_binary_op_set():
+    check_value(i.LangValueBoolean, True, i.interpret(parse("({} == {})", "expr")))
+    check_value(i.LangValueBoolean, False, i.interpret(parse("({} == 1..2)", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("({ 1 } == 1..2)", "expr")))
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(parse("({ 1, 2 } == { 2, 1 })", "expr")),
+    )
+
+    check_value(i.LangValueBoolean, False, i.interpret(parse("({} != {})", "expr")))
+    check_value(i.LangValueBoolean, True, i.interpret(parse("({} != 1..2)", "expr")))
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("({ 1 } != 1..2)", "expr")),
+    )
+    check_value(
+        i.LangValueBoolean,
+        False,
+        i.interpret(parse("({ 1, 2 } != { 2, 1 })", "expr")),
+    )
+
+    check_value(i.LangValueSet, set(), i.interpret(parse("({} | {})", "expr")))
+    check_value(i.LangValueSet, {1}, i.interpret(parse("({} | 1..2)", "expr")))
+    check_value(i.LangValueSet, {1}, i.interpret(parse("({ 1 } | 1..2)", "expr")))
+    check_value(i.LangValueSet, {1, 2}, i.interpret(parse("({ 1 } | { 2 })", "expr")))
+    check_value(i.LangValueSet, {1, 5, 6}, i.interpret(parse("(5..7 | 1..2)", "expr")))
+
+    check_value(i.LangValueSet, set(), i.interpret(parse("({} & {})", "expr")))
+    check_value(i.LangValueSet, set(), i.interpret(parse("({} & 1..2)", "expr")))
+    check_value(i.LangValueSet, {1}, i.interpret(parse("({ 1 } & 1..2)", "expr")))
+    check_value(i.LangValueSet, set(), i.interpret(parse("({ 1 } & { 2 })", "expr")))
+    check_value(i.LangValueSet, {5, 6}, i.interpret(parse("(5..7 & 1..10)", "expr")))
+
+
+def test_binary_op():
+    check_value(
+        i.LangValueBoolean,
+        True,
+        i.interpret(
+            parse(
+                "(1 * 2 + 4 / 2 - 1 & 3 | 1 == 2 or 1 < 3 and 2 in 2..3 or 3 not in 1..3 | 4..5)",
+                "expr",
+            )
+        ),
+    )
 
 
 def test_load():
