@@ -14,11 +14,27 @@ def test_empty_program():
     assert not l.check_syntax(";;;")
 
 
+def test_non_empty_program():
+    assert l.check_syntax(
+        """
+let a = "test";
+
+// several one-line
+// comments also works
+
+>>> a;
+
+print x;
+"""
+    )
+
+
 def test_let():
     assert l.check_syntax("let a = 1;")
     assert l.check_syntax("let a = /* this is another name being shadowed -> */ a;")
     assert l.check_syntax("let a = a; // my cool variable")
     assert l.check_syntax("// my cool variable\nlet a = a;")
+
     assert not l.check_syntax("let a = 1")
     assert not l.check_syntax("let a = 1;;")
     assert not l.check_syntax("let 1 = a;")
