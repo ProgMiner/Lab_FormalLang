@@ -152,7 +152,7 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
         iter(value)
 
         return LangValueSet(
-            value={python_value_to_value(x, ctx) for x in set(value)},
+            value=frozenset({python_value_to_value(x, ctx) for x in set(value)}),
             ctx=ctx,
         )
 
@@ -183,7 +183,7 @@ def value_to_python_value(value: LangValue) -> any:
         return tuple([value_to_python_value(x) for x in value.value])
 
     elif isinstance(value, LangValueSet):
-        return {value_to_python_value(x) for x in value.value}
+        return frozenset({value_to_python_value(x) for x in value.value})
 
     elif isinstance(value, LangValueFA):
         return value.value
@@ -271,7 +271,7 @@ class InterpretVisitor(LangVisitor):
             return self.scope[name]
 
         except KeyError as e:
-            raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
+            raise ValueError(f'name "{self.ctx.name.text}" is not in scope') from e
 
     def _get_rfa(self, name: str) -> EpsilonNFA:
         """
@@ -575,7 +575,10 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(right, LangValueSet):
                     raise type_error(right, "set")
 
-                result = LangValueSet(value=left.value & right.value, ctx=ctx)
+                result = LangValueSet(
+                    value=frozenset(left.value & right.value),
+                    ctx=ctx,
+                )
 
             elif isinstance(left, LangValueRSM):
                 # T-RSM-FA-Intersect
@@ -769,7 +772,10 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(right, LangValueSet):
                     raise type_error(right, "set")
 
-                result = LangValueSet(value=left.value | right.value, ctx=ctx)
+                result = LangValueSet(
+                    value=frozenset(left.value | right.value),
+                    ctx=ctx,
+                )
 
             elif isinstance(left, LangValueRSM):
                 if isinstance(right, LangValueRSM):
@@ -974,7 +980,7 @@ class InterpretVisitor(LangVisitor):
 
         self._exit_ctx()
 
-        return LangValueSet(value=result, ctx=ctx)
+        return LangValueSet(value=frozenset(result), ctx=ctx)
 
     # Visit a parse tree produced by LangParser#expr_set_clause__set_start_states.
     def visitExpr_set_clause__set_start_states(
@@ -1075,7 +1081,9 @@ class InterpretVisitor(LangVisitor):
         sm = self._get_sm_from_expr(expr_ctx)
 
         return LangValueSet(
-            value={python_value_to_value(x.value, expr_ctx) for x in sm.start_states},
+            value=frozenset(
+                {python_value_to_value(x.value, expr_ctx) for x in sm.start_states}
+            ),
             ctx=expr_ctx,
         )
 
@@ -1089,7 +1097,9 @@ class InterpretVisitor(LangVisitor):
         sm = self._get_sm_from_expr(expr_ctx)
 
         return LangValueSet(
-            value={python_value_to_value(x.value, expr_ctx) for x in sm.final_states},
+            value=frozenset(
+                {python_value_to_value(x.value, expr_ctx) for x in sm.final_states}
+            ),
             ctx=expr_ctx,
         )
 
@@ -1136,7 +1146,9 @@ class InterpretVisitor(LangVisitor):
         sm = self._get_sm_from_expr(expr_ctx)
 
         return LangValueSet(
-            value={python_value_to_value(x.value, expr_ctx) for x in sm.states},
+            value=frozenset(
+                {python_value_to_value(x.value, expr_ctx) for x in sm.states}
+            ),
             ctx=expr_ctx,
         )
 
@@ -1150,10 +1162,12 @@ class InterpretVisitor(LangVisitor):
         sm = self._get_sm_from_expr(expr_ctx)
 
         return LangValueSet(
-            value={
-                python_value_to_value((u.value, l.value, v.value), expr_ctx)
-                for u, l, v in fa.iterate_transitions(sm)
-            },
+            value=frozenset(
+                {
+                    python_value_to_value((u.value, l.value, v.value), expr_ctx)
+                    for u, l, v in fa.iterate_transitions(sm)
+                }
+            ),
             ctx=expr_ctx,
         )
 
@@ -1167,7 +1181,9 @@ class InterpretVisitor(LangVisitor):
         sm = self._get_sm_from_expr(expr_ctx)
 
         return LangValueSet(
-            value={python_value_to_value(x.value, expr_ctx) for x in sm.symbols},
+            value=frozenset(
+                {python_value_to_value(x.value, expr_ctx) for x in sm.symbols}
+            ),
             ctx=expr_ctx,
         )
 
@@ -1213,7 +1229,7 @@ class InterpretVisitor(LangVisitor):
         to = parse_token(ctx.to)
 
         result = LangValueSet(
-            value={LangValueInt(value=x, ctx=ctx) for x in range(from_, to)},
+            value=frozenset({LangValueInt(value=x, ctx=ctx) for x in range(from_, to)}),
             ctx=ctx,
         )
 
@@ -1227,7 +1243,7 @@ class InterpretVisitor(LangVisitor):
 
         # T-Set
         result = LangValueSet(
-            value={x.accept(self) for x in ctx.elems},
+            value=frozenset({x.accept(self) for x in ctx.elems}),
             ctx=ctx,
         )
 
