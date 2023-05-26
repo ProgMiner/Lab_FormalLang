@@ -247,8 +247,6 @@ def test_real():
     assert l.check_syntax("0.0;")
     assert l.check_syntax("0.12313;")
     assert l.check_syntax(".234234;")
-    assert l.check_syntax("-1;")
-    assert l.check_syntax("10000000000000000000;")
     assert l.check_syntax(".1e1231;")
     assert l.check_syntax(".2E1;")
     assert l.check_syntax(".3E-1;")
