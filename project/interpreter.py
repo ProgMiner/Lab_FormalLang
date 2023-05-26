@@ -136,14 +136,17 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
     if isinstance(value, str):
         return LangValueString(value=value, ctx=ctx)
 
+    if isinstance(value, rfa.Nonterminal):
+        return python_value_to_value(f"Nonterminal({value.value})", ctx)
+
     if isinstance(value, tuple):
+        if len(value) == 1:
+            return python_value_to_value(value[0], ctx)
+
         return LangValueTuple(
             value=tuple([python_value_to_value(x, ctx) for x in value]),
             ctx=ctx,
         )
-
-    if isinstance(value, rfa.Nonterminal):
-        return python_value_to_value(value.value, ctx)
 
     try:
         iter(value)
