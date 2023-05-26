@@ -1,7 +1,11 @@
+from pyformlang.finite_automaton import EpsilonNFA
 from project.fa import iterate_transitions
 from project.rfa import Nonterminal
 import project.interpreter as i
+import project.graphs as graphs
 from project.lang import parse
+import project.fa as fa
+import tempfile
 import pytest
 import io
 
@@ -282,19 +286,74 @@ def test_unary_op():
 #     )
 
 
-# def test_load():
-#     assert l.check_syntax('load "";')
-#     assert l.check_syntax('load "test";')
-#     assert l.check_syntax('load /* my cool graph */ "test";')
-#
-#     assert l.check_syntax(
-#         r"""
-# load "test"
-# with only start states { 1, 2, 3 }
-# with only final states { 5, 6 }
-# ;
-# """
-#     )
+def test_load():
+    check_value(
+        i.LangValueFA,
+        fa.graph_to_nfa(graphs.load_by_name("bzip")),
+        i.interpret(parse('load "bzip"', "expr")),
+    )
+
+    check_value(
+        i.LangValueFA,
+        fa.graph_to_nfa(graphs.load_by_name("generations")),
+        i.interpret(parse('load "generations"', "expr")),
+    )
+
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        f.write(
+            """\
+0 1 a
+1 2 a
+2 0 a
+2 3 b
+3 2 b
+"""
+        )
+
+        f.seek(0)
+
+        value = EpsilonNFA()
+        value.add_transition(0, "a", 1)
+        value.add_transition(1, "a", 2)
+        value.add_transition(2, "a", 0)
+        value.add_transition(2, "b", 3)
+        value.add_transition(3, "b", 2)
+
+        for st in range(4):
+            value.add_start_state(st)
+            value.add_final_state(st)
+
+        check_value(
+            i.LangValueFA,
+            value,
+            i.interpret(parse(f'load "{f.name}"', "expr")),
+        )
+
+        value = EpsilonNFA()
+        value.add_transition(0, "a", 1)
+        value.add_transition(1, "a", 2)
+        value.add_transition(2, "a", 0)
+        value.add_transition(2, "b", 3)
+        value.add_transition(3, "b", 2)
+
+        value.add_start_state(0)
+        value.add_start_state(1)
+        value.add_final_state(3)
+
+        check_value(
+            i.LangValueFA,
+            value,
+            i.interpret(
+                parse(
+                    f"""(
+load "{f.name}"
+with only start states {{ 0, 1 }}
+with only final states {{ 3 }}
+)""",
+                    "expr",
+                )
+            ),
+        )
 
 
 def test_name():
