@@ -575,9 +575,9 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(right, LangValueSet):
                     raise type_error(right, "set")
 
-                result = LangValueSet(
-                    value=frozenset(left.value & right.value),
-                    ctx=ctx,
+                result = python_value_to_value(
+                    value_to_python_value(left) & value_to_python_value(right),
+                    ctx,
                 )
 
             elif isinstance(left, LangValueRSM):
@@ -637,13 +637,20 @@ class InterpretVisitor(LangVisitor):
             casted_right = cast_string_to_FA(right, ctx)
 
             if (
-                isinstance(left, LangValueString)
-                and not isinstance(casted_right, LangValueFA)
-                and not isinstance(right, LangValueRSM)
-            ) or (
-                not isinstance(casted_left, LangValueFA)
-                and not isinstance(left, LangValueRSM)
-                and isinstance(right, LangValueString)
+                (
+                    isinstance(left, LangValueString)
+                    and not isinstance(casted_right, LangValueFA)
+                    and not isinstance(right, LangValueRSM)
+                )
+                or (
+                    not isinstance(casted_left, LangValueFA)
+                    and not isinstance(left, LangValueRSM)
+                    and isinstance(right, LangValueString)
+                )
+                or (
+                    isinstance(left, LangValueString)
+                    and isinstance(right, LangValueString)
+                )
             ):
                 # T-ConcatS1, T-ConcatS2
 
@@ -717,7 +724,8 @@ class InterpretVisitor(LangVisitor):
                     if not isinstance(casted_right, LangValueFA):
                         raise type_error(right, ["string", "FA"])
 
-                    result = LangValueFA(
+                    result = LangValueRSM(
+                        name=None,
                         value=fa.concat(left.value, casted_right.value).minimize(),
                         ctx=ctx,
                     )
@@ -772,9 +780,9 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(right, LangValueSet):
                     raise type_error(right, "set")
 
-                result = LangValueSet(
-                    value=frozenset(left.value | right.value),
-                    ctx=ctx,
+                result = python_value_to_value(
+                    value_to_python_value(left) | value_to_python_value(right),
+                    ctx,
                 )
 
             elif isinstance(left, LangValueRSM):
@@ -831,46 +839,70 @@ class InterpretVisitor(LangVisitor):
         elif ctx.op.text == "==":
             # T-Equals
 
-            result = LangValueBoolean(value=left.value == right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) == value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == "!=":
             # T-NotEquals
 
-            result = LangValueBoolean(value=left.value != right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) != value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == "<":
             # T-Less
 
-            result = LangValueBoolean(value=left.value < right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) < value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == ">":
             # T-Greater
 
-            result = LangValueBoolean(value=left.value > right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) > value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == "<=":
             # T-LessEquals
 
-            result = LangValueBoolean(value=left.value <= right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) <= value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == ">=":
             # T-GreaterEquals
 
-            result = LangValueBoolean(value=left.value >= right.value, ctx=ctx)
+            result = LangValueBoolean(
+                value=value_to_python_value(left) >= value_to_python_value(right),
+                ctx=ctx,
+            )
 
         elif ctx.op.text == "in":
             # T-In
 
+            if not isinstance(right, LangValueSet):
+                raise type_error(right, "set")
+
             result = LangValueBoolean(
-                value=any([left.value == x.value for x in right.value]),
+                value=value_to_python_value(left) in value_to_python_value(right),
                 ctx=ctx,
             )
 
         elif ctx.op.type == LangLexer.NOT_IN:
             # T-NotIn
 
+            if not isinstance(right, LangValueSet):
+                raise type_error(right, "set")
+
             result = LangValueBoolean(
-                value=all([left.value != x.value for x in right.value]),
+                value=value_to_python_value(left) not in value_to_python_value(right),
                 ctx=ctx,
             )
 
@@ -915,7 +947,7 @@ class InterpretVisitor(LangVisitor):
 
             ctx.what.accept(self)(result, what_value)
 
-            result = LangValueRSM(value=result, ctx=ctx)
+            result = LangValueRSM(name=None, value=result, ctx=ctx)
 
         else:
             casted_sm = cast_string_to_FA(sm, ctx)

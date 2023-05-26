@@ -5,12 +5,36 @@ from project.fa import (
     transitive_closure,
 )
 from pyformlang.finite_automaton import EpsilonNFA, State, Symbol
+from functools import total_ordering
 from collections import namedtuple
 import scipy.sparse as sp
 import numpy as np
 
 
-Nonterminal = namedtuple("Nonterminal", ["value"])
+@total_ordering
+class Nonterminal_ordering:
+    def __eq__(self, other):
+        if not isinstance(other, Nonterminal):
+            return False
+
+        return self.value == other.value
+
+    def __lt__(self, other):
+        if not isinstance(other, Nonterminal):
+            return self.value < other
+
+        return self.value < other.value
+
+
+class Nonterminal(namedtuple("Nonterminal", ["value"])):
+
+    __lt__ = Nonterminal_ordering.__lt__
+    __le__ = Nonterminal_ordering.__le__
+    __gt__ = Nonterminal_ordering.__gt__
+    __ge__ = Nonterminal_ordering.__ge__
+
+
+del Nonterminal_ordering
 
 
 class RFA:
