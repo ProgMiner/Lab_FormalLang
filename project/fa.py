@@ -182,6 +182,19 @@ def intersect(a: EpsilonNFA, b: EpsilonNFA) -> EpsilonNFA:
     return result
 
 
+def transitive_closure(mat: sp.spmatrix) -> sp.csr_matrix:
+    """
+    Returns reflexive-transitive closure of adjacency matrix.
+    """
+
+    closure = sp.csr_matrix(mat)
+
+    for _ in range(ceil(log2(mat.get_shape()[0]))):
+        closure += closure @ closure
+
+    return closure
+
+
 def reachable_states(c: EpsilonNFA) -> set[tuple[any, any]]:
     """
     Returns set of pairs of states. Each pair is one of start states and one of final states and
@@ -191,13 +204,9 @@ def reachable_states(c: EpsilonNFA) -> set[tuple[any, any]]:
     c_mapping = states_mapping(c)
     c_matrix = adjacency_matrix(c, c_mapping)
 
-    c_closure = sp.csr_matrix(c_matrix)
-    for _ in range(ceil(log2(len(c_mapping)))):
-        c_closure += c_closure @ c_closure
-
     start_states = {i: s.value for s, i in c_mapping.items() if s in c.start_states}
     final_states = {i: s.value for s, i in c_mapping.items() if s in c.final_states}
-    c_closure = sp.coo_matrix(c_closure)
+    c_closure = sp.coo_matrix(transitive_closure(c_matrix))
 
     result = set()
     for i, j, v in zip(c_closure.row, c_closure.col, c_closure.data):
@@ -348,7 +357,7 @@ def query_graph_bfs(
     return result
 
 
-def single_transition(label: str) -> EpsilonNFA:
+def single_transition(label: any) -> EpsilonNFA:
     """
     Build NFA with two states and one transition by label.
     """

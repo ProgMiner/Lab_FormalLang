@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from pyformlang.finite_automaton import EpsilonNFA, Symbol
 from pyformlang.regular_expression import Regex
-from pyformlang.cfg import Variable
+from project.fa import iterate_transitions
+from project.rfa import RFA, Nonterminal
 from collections import defaultdict
-from project.rfa import RFA
 
 
 class ECFG:
@@ -13,8 +14,8 @@ class ECFG:
 
     def __init__(
         self,
-        start_symbol: str,
-        rules: dict[str, Regex],
+        start_symbol: any,
+        rules: dict[any, Regex],
     ):
         self.start_symbol = start_symbol
         self.rules = rules
@@ -23,9 +24,25 @@ class ECFG:
         fas = {}
 
         for nt, rx in self.rules.items():
-            fas[Variable(nt)] = rx.to_epsilon_nfa()
+            fa = rx.to_epsilon_nfa()
 
-        return RFA(Variable(self.start_symbol), fas)
+            new_fa = EpsilonNFA()
+
+            for s in fa.start_states:
+                new_fa.add_start_state(s)
+
+            for s in fa.final_states:
+                new_fa.add_final_state(s)
+
+            for u, l, v in iterate_transitions(fa):
+                if l.value in self.rules:
+                    l = Symbol(Nonterminal(l.value))
+
+                new_fa.add_transition(u, l, v)
+
+            fas[Nonterminal(nt)] = new_fa
+
+        return RFA(Nonterminal(self.start_symbol), fas)
 
     @staticmethod
     def from_text(text: str, start_symbol: str = None) -> ECFG:

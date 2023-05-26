@@ -25,7 +25,7 @@ let q = ("equivalentClass" | "first") + "type"* + "type";
     ;
 
 // определение РКА и связывание с именем q
-let q = ("type" | rec q) | "epsilon";
+let q = "type" | rec q | "epsilon";
 
 >>> start states of q;
 >>> final states of q;
@@ -34,8 +34,8 @@ let q = ("type" | rec q) | "epsilon";
 >>> labels of q;
 
 // контекстно-свободный запрос к графу g
->>> reachable states of (g & q)
-    mapped with \((a, _), (b, _)) -> a + " -> " + b
+>>> reachable states of g & q
+    mapped with \(a, b) -> a + " -> " + b
     ;
 
 // порождение множества из диапазона с помощью mapped with и filtered with
