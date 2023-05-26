@@ -7,9 +7,10 @@ from project.parser.langParser import langParser as LangParser
 from project.parser.langVisitor import langVisitor as LangVisitor
 
 
-def parse_stream(stream: InputStream):
+def parse_stream(stream: InputStream, rule_name: str = "program"):
     """
-    Run ANTLR4 parser for language from rule program on specified stream and return parsing tree.
+    Run ANTLR4 parser for language from specified rule
+    on specified stream and return parsing tree.
 
     If any error produced, raises RecognitionError.
     """
@@ -24,10 +25,16 @@ def parse_stream(stream: InputStream):
     parser.removeErrorListeners()
     parser.addErrorListener(RaisingErrorListener.INSTANCE)
 
-    return parser.program()
+    return getattr(parser, rule_name)()
 
 
-def parse(text: str = None, *, filename: str = None, encoding: str = "utf-8"):
+def parse(
+    text: str = None,
+    rule_name: str = "program",
+    *,
+    filename: str = None,
+    encoding: str = "utf-8",
+):
     """
     Runs parse_stream with one of streams:
 
@@ -50,16 +57,28 @@ def parse(text: str = None, *, filename: str = None, encoding: str = "utf-8"):
     else:
         stream = StdinStream(encoding=encoding)
 
-    return parse_stream(stream)
+    return parse_stream(stream, rule_name)
 
 
-def check_syntax(text: str = None, *, filename: str = None, encoding: str = "utf-8"):
+def check_syntax(
+    text: str = None,
+    rule_name: str = "program",
+    *,
+    filename: str = None,
+    encoding: str = "utf-8",
+):
     """
     Checks is parser can recognize syntax. Parameters are similar to parse function.
     """
 
     try:
-        parse(text=text, filename=filename, encoding=encoding)
+        parse(
+            text=text,
+            rule_name=rule_name,
+            filename=filename,
+            encoding=encoding,
+        )
+
         return True
 
     except RecognitionError:
