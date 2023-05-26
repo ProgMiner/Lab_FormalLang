@@ -1,7 +1,7 @@
 from pyformlang.finite_automaton import EpsilonNFA
 from project import graphs as graphs
-from pyformlang.cfg import Variable
 from collections import namedtuple
+from project import rfa as rfa
 from project import fa as fa
 from typing import Iterable
 from antlr4 import *
@@ -18,7 +18,7 @@ LangValueString = namedtuple("LangValueString", ["value", "ctx"])
 LangValueTuple = namedtuple("LangValueTuple", ["value", "ctx"])
 LangValueSet = namedtuple("LangValueSet", ["value", "ctx"])
 LangValueFA = namedtuple("LangValueFA", ["value", "ctx"])
-LangValueRSM = namedtuple("LangValueRSM", ["value", "ctx"])
+LangValueRSM = namedtuple("LangValueRSM", ["name", "value", "ctx"])
 LangValueLambda = namedtuple("LangValueLambda", ["value", "ctx"])
 
 LangValueBoolean.typename = "boolean"
@@ -30,6 +30,8 @@ LangValueSet.typename = "set"
 LangValueFA.typename = "FA"
 LangValueRSM.typename = "RSM"
 LangValueLambda.typename = "lambda"
+
+NamedLangValue = LangValueRSM
 
 LangValue = (
     LangValueBoolean
@@ -140,7 +142,7 @@ def python_value_to_value(value: any, ctx: ParserRuleContext) -> LangValue:
             ctx=ctx,
         )
 
-    if isinstance(value, Variable):
+    if isinstance(value, rfa.Nonterminal):
         return python_value_to_value(value.value, ctx)
 
     try:
@@ -236,7 +238,19 @@ class InterpretVisitor(LangVisitor):
 
         return self.ctx_stack[-1]
 
+    @property
+    def scope(self) -> dict[str, LangValue]:
+        """
+        Returns current scope.
+        """
+
+        return self.scopes[-1]
+
     def _load_graph(self, name: str) -> EpsilonNFA:
+        """
+        Load graph as FA with caching.
+        """
+
         if name in self.load_cache:
             return self.load_cache[name]
 
@@ -244,6 +258,54 @@ class InterpretVisitor(LangVisitor):
         self.load_cache[name] = result
 
         return result
+
+    def _get_value_from_scope(self, name: str) -> LangValue:
+        """
+        Get value from current scope by name or raise error if name isn't presented.
+        """
+
+        try:
+            return self.scope[name]
+
+        except KeyError as e:
+            raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
+
+    def _get_rfa(self, name: str) -> EpsilonNFA:
+        """
+        Get RFA from current scope by name.
+        """
+
+        result = self._get_value_from_scope(name)
+
+        if not isinstance(result, LangValueRSM):
+            raise type_error(result, "RSM")
+
+        return result.value
+
+    def _build_rfa(self, start_state: str) -> rfa.RFA:
+        """
+        Materialize RFA from current scope and start state.
+        """
+
+        start_state = rfa.Nonterminal(start_state)
+        fas = dict()
+
+        new_nts = {start_state}
+        while new_nts:
+            old_nts = new_nts
+            new_nts = set()
+
+            for nt in old_nts:
+                fa = self._get_rfa(nt.value)
+                fas[nt] = fa
+
+                for s in fa.symbols:
+                    if isinstance(s, rfa.Nonterminal):
+                        new_nts.add(s)
+
+            new_nts -= fas.keys()
+
+        return rfa.RFA(start_state, fas)
 
     def _enter_ctx(self, ctx: ParserRuleContext):
         self.ctx_stack.append(ctx)
@@ -264,7 +326,16 @@ class InterpretVisitor(LangVisitor):
     def visitStmt__let(self, ctx: LangParser.Stmt__letContext):
         self._enter_ctx(ctx)
 
-        self.scopes[0][ctx.name.text] = ctx.value.accept(self)
+        value = ctx.value.accept(self)
+
+        if isinstance(value, NamedLangValue):
+            value = type(value)(
+                name=ctx.name.text,
+                value=value.value,
+                ctx=value.ctx,
+            )
+
+        self.scopes[0][ctx.name.text] = value
 
         self._exit_ctx()
 
@@ -294,18 +365,15 @@ class InterpretVisitor(LangVisitor):
             # T-RecName
 
             result = LangValueRSM(
-                value=fa.single_transition(Variable(ctx.name.text)),
+                name=ctx.name.text,
+                value=fa.single_transition(rfa.Nonterminal(ctx.name.text)),
                 ctx=ctx,
             )
 
         else:
             # T-Name
 
-            try:
-                result = self.scopes[-1][ctx.name.text]
-
-            except KeyError as e:
-                raise ValueError(f'name "{ctx.name.text}" is not in scope') from e
+            result = self._get_value_from_scope(ctx.name.text)
 
         self._exit_ctx()
 
@@ -344,6 +412,7 @@ class InterpretVisitor(LangVisitor):
                 # T-KleeneStarRSM
 
                 result = LangValueRSM(
+                    name=None,
                     value=fa.kleene_star(value.value).minimize(),
                     ctx=ctx,
                 )
@@ -512,13 +581,35 @@ class InterpretVisitor(LangVisitor):
                 if not isinstance(casted_right, LangValueFA):
                     raise type_error(right, "FA")
 
-                raise NotImplementedError("T-RSM-FA-Intersect")
+                if left.name is None:
+                    raise NotImplementedError(
+                        "Intersection of unnamed RSM isn't supported, use let statement before"
+                    )
+
+                left_rfa = self._build_rfa(left.name).minimize()
+
+                result = LangValueRSM(
+                    name=None,
+                    value=rfa.intersect_with_fa(left_rfa, casted_right.value),
+                    ctx=ctx,
+                )
 
             elif isinstance(casted_left := cast_string_to_FA(left, ctx), LangValueFA):
                 if isinstance(right, LangValueRSM):
                     # T-FA-RSM-Intersect
 
-                    raise NotImplementedError("T-FA-RSM-Intersect")
+                    if right.name is None:
+                        raise NotImplementedError(
+                            "Intersection of unnamed RSM isn't supported, use let statement before"
+                        )
+
+                    right_rfa = self._build_rfa(right.name).minimize()
+
+                    result = LangValueRSM(
+                        name=None,
+                        value=rfa.intersect_with_fa(right_rfa, casted_left.value),
+                        ctx=ctx,
+                    )
 
                 else:
                     # T-FA-FA-Intersect
@@ -585,6 +676,7 @@ class InterpretVisitor(LangVisitor):
                     # T-Concat-FA-RSM
 
                     result = LangValueRSM(
+                        name=None,
                         value=fa.concat(casted_left.value, right.value).minimize(),
                         ctx=ctx,
                     )
@@ -608,6 +700,7 @@ class InterpretVisitor(LangVisitor):
                     # T-Concat-RSM-RSM
 
                     result = LangValueRSM(
+                        name=None,
                         value=fa.concat(left.value, right.value).minimize(),
                         ctx=ctx,
                     )
@@ -680,6 +773,7 @@ class InterpretVisitor(LangVisitor):
                     # T-RSM-RSM-Union
 
                     result = LangValueRSM(
+                        name=None,
                         value=fa.union(left.value, right.value).minimize(),
                         ctx=ctx,
                     )
@@ -692,6 +786,7 @@ class InterpretVisitor(LangVisitor):
                         raise type_error(right, ["FA", "RSM"])
 
                     result = LangValueRSM(
+                        name=None,
                         value=fa.union(left.value, casted_right.value).minimize(),
                         ctx=ctx,
                     )
@@ -701,6 +796,7 @@ class InterpretVisitor(LangVisitor):
                     # T-FA-RSM-Union
 
                     result = LangValueRSM(
+                        name=None,
                         value=fa.union(casted_left.value, right.value).minimize(),
                         ctx=ctx,
                     )
@@ -1010,7 +1106,10 @@ class InterpretVisitor(LangVisitor):
         if isinstance(value, LangValueRSM):
             # T-ReachableStatesOfRSM
 
-            raise NotImplementedError("T-ReachableStatesOfRSM")
+            return python_value_to_value(
+                fa.reachable_states(value.value),
+                expr_ctx,
+            )
 
         else:
             # T-ReachableStatesOfFA
@@ -1140,7 +1239,7 @@ class InterpretVisitor(LangVisitor):
         # T-Lambda
 
         match = ctx.param.accept(self)
-        current_scope = self.scopes[-1].copy()
+        current_scope = self.scope.copy()
 
         def result(arg):
             self._enter_ctx(ctx)
